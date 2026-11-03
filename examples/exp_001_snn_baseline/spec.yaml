@@ -1,0 +1,35 @@
+experiment_id: "EXP-001"
+title: "Exponential Leaky Integrate-and-Fire with Adaptive Dynamic Threshold"
+project_path: "."
+date: "2026-11-02"
+
+hypothesis:
+  statement: "Adaptive membrane potential thresholds reduce false positives in high-frequency spike bursts while preserving 95%+ precision."
+  mathematical_formulation: |
+    # SDE of adaptive membrane potential
+    dV_t = -(V_t - V_rest) / tau_m * dt + R * I_t * dt + sigma * dW_t
+    dTheta_t = -(Theta_t - Theta_0) / tau_theta * dt + delta_theta * dS_t
+
+falsification:
+  target_metric: "f1_score"
+  baseline_metric: 0.812
+  required_gain: 0.05
+  max_p_value: 0.01
+  numerical_stability_check: true
+
+compute_budget:
+  max_runtime_minutes: 30
+  gpu_memory_limit_mb: 4096
+  allow_cpu_fallback: true
+  random_seeds: [42, 137, 2026]
+
+execution_steps:
+  - "1. Generate synthetic spike train signals with Poisson noise"
+  - "2. Benchmark canonical LIF baseline"
+  - "3. Implement adaptive dynamic threshold LIF"
+  - "4. Run cross-validation over 3 seeds"
+  - "5. Output metrics and trigger blind audit"
+
+promotion:
+  target_module_path: "src/models/adaptive_lif.py"
+  target_notebook_path: "notebooks/demo_adaptive_lif.ipynb"

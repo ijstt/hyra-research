@@ -1,0 +1,58 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hyra-research"
+version = "1.0.0"
+description = "Autonomous AI Research Harness & Experimentation Platform with Anti-Leakage Verification and Zero Project Pollution"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Vladimir Fedorko", email = "vladimirfedorko225@gmail.com" }
+]
+keywords = [
+    "ai-agents",
+    "mcp",
+    "model-context-protocol",
+    "autonomous-research",
+    "mlops",
+    "zero-project-pollution",
+    "reproducibility",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "pyyaml>=6.0",
+    "psutil>=5.9.0",
+]
+
+[project.optional-dependencies]
+mcp = [
+    "mcp>=1.0.0",
+]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+hyra = "hyra.cli:main"
+hyra-mcp = "hyra.mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hyra"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
