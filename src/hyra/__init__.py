@@ -1,6 +1,6 @@
 """HYRA: Autonomous AI Research Harness & Experimentation Platform."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 from .config import HyraConfig, config
 from .engine import (
@@ -14,6 +14,15 @@ from .formal_verifier import (
     is_lean_installed,
     verify_lean_proof,
 )
+from .hypothesis_dag import (
+    AblationMatrixReport,
+    AblationVariant,
+    CausalComponentAttribution,
+    HypothesisDAG,
+    HypothesisNode,
+    compute_ablation_attributions,
+    generate_ablation_variants,
+)
 from .leakage_detector import (
     FileLeakageReport,
     LeakageFinding,
@@ -21,6 +30,14 @@ from .leakage_detector import (
     analyze_code,
     analyze_file,
     analyze_path,
+)
+from .mechanistic_telemetry import (
+    StabilityReport,
+    analyze_phase_space_bounds,
+    assess_dynamical_system,
+    compute_lyapunov_exponent,
+    estimate_lipschitz_constant,
+    estimate_spectral_radius_matrix,
 )
 from .promoter import check_promotion_readiness, promote_to_project
 from .resource_guard import get_system_metrics, run_sandboxed_command
@@ -40,6 +57,12 @@ from .skill_exporter import (
     generate_skill_manifest,
 )
 from .spec_loader import SpecValidationError, load_and_validate_spec
+from .stress_engine import (
+    PhaseBoundaryReport,
+    StressPoint,
+    bisection_boundary_search,
+    sweep_stress_parameter,
+)
 
 __all__ = [
     "HyraConfig",
@@ -74,4 +97,21 @@ __all__ = [
     "ExportedSkillReport",
     "export_skill",
     "generate_skill_manifest",
+    "StabilityReport",
+    "assess_dynamical_system",
+    "compute_lyapunov_exponent",
+    "estimate_lipschitz_constant",
+    "analyze_phase_space_bounds",
+    "estimate_spectral_radius_matrix",
+    "HypothesisNode",
+    "HypothesisDAG",
+    "AblationVariant",
+    "CausalComponentAttribution",
+    "AblationMatrixReport",
+    "generate_ablation_variants",
+    "compute_ablation_attributions",
+    "StressPoint",
+    "PhaseBoundaryReport",
+    "bisection_boundary_search",
+    "sweep_stress_parameter",
 ]

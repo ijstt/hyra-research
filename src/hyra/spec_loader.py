@@ -67,4 +67,11 @@ def load_and_validate_spec(spec_path: Union[str, Path]) -> Dict[str, Any]:
             if "proof_file" not in formal_verification:
                 raise SpecValidationError("Missing 'proof_file' in 'formal_verification' when enabled.")
 
+    stability_criteria = data.get("stability_criteria")
+    if stability_criteria is not None:
+        if not isinstance(stability_criteria, dict):
+            raise SpecValidationError("Block 'stability_criteria' must be a dictionary mapping.")
+        if "enabled" in stability_criteria and not isinstance(stability_criteria["enabled"], bool):
+            raise SpecValidationError("Field 'stability_criteria.enabled' must be a boolean.")
+
     return data

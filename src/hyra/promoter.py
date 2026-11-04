@@ -77,6 +77,71 @@ def check_promotion_readiness(
                     err = "Proof contains unverified 'sorry' assertions."
                 return False, f"Formal verification gate failed: {err}"
 
+        # 5. Dynamic stability verification gate
+        stability_cfg = active_spec.get("stability_criteria")
+        if stability_cfg and isinstance(stability_cfg, dict) and stability_cfg.get("enabled"):
+            traj_file_rel = stability_cfg.get("trajectory_file", "results/trajectory.json")
+            candidate_traj = [
+                exp_dir / traj_file_rel,
+                exp_dir / "results" / Path(traj_file_rel).name,
+                exp_dir / Path(traj_file_rel).name,
+            ]
+            traj_path = next((p for p in candidate_traj if p.is_file()), None)
+            if not traj_path:
+                return False, f"Stability criteria required by spec, but trajectory file '{traj_file_rel}' was not found."
+
+            try:
+                import json
+                from .mechanistic_telemetry import assess_dynamical_system
+
+                with open(traj_path, "r", encoding="utf-8") as tf:
+                    tdata = json.load(tf)
+
+                if isinstance(tdata, list):
+                    tb = tdata
+                    tp = None
+                    jac = None
+                    dt = 0.01
+                elif isinstance(tdata, dict):
+                    tb = tdata.get("trajectory_base") or tdata.get("trajectory") or []
+                    tp = tdata.get("trajectory_perturbed")
+                    jac = tdata.get("jacobian")
+                    dt = float(tdata.get("dt", 0.01))
+                else:
+                    return False, f"Invalid trajectory data format in '{traj_file_rel}'."
+
+                stab_report = assess_dynamical_system(
+                    system_name=exp_dir.name,
+                    trajectory_base=tb,
+                    trajectory_perturbed=tp,
+                    jacobian=jac,
+                    dt=dt,
+                )
+
+                require_bounded = stability_cfg.get("require_bounded", True)
+                require_contractive = stability_cfg.get("require_contractive", False)
+                max_lyapunov = stability_cfg.get("max_lyapunov")
+
+                if require_bounded and not stab_report.is_bounded:
+                    return False, "Stability gate failed: System trajectory diverges in phase space."
+
+                if require_contractive and not stab_report.is_contractive:
+                    l_val = (
+                        f"{stab_report.lipschitz_constant:.4f}"
+                        if stab_report.lipschitz_constant is not None
+                        else "unknown"
+                    )
+                    return False, f"Stability gate failed: System is not contractive (Lipschitz L = {l_val})."
+
+                if max_lyapunov is not None and stab_report.lyapunov_exponent is not None:
+                    if stab_report.lyapunov_exponent > max_lyapunov:
+                        return (
+                            False,
+                            f"Stability gate failed: Lyapunov exponent {stab_report.lyapunov_exponent:.4f} exceeds {max_lyapunov}.",
+                        )
+            except Exception as e:
+                return False, f"Stability gate verification error: {str(e)}"
+
     return True, "Experiment is verified and eligible for promotion to production repository."
 
 

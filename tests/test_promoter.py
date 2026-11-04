@@ -85,3 +85,56 @@ def test_promote_to_project_execution(tmp_path):
     assert result["git_committed"] is True
     assert (target_repo / "models" / "new_model.py").is_file()
     assert (target_repo / "models" / "new_model.py").read_text(encoding="utf-8") == "# Model code\n"
+
+
+def test_promotion_stability_gate_divergent(tmp_path):
+    import json
+
+    exp_dir = tmp_path / "exp_stab"
+    exp_dir.mkdir()
+    (exp_dir / "audit_log.md").write_text("VERDICT: CONFIRMED\n", encoding="utf-8")
+    (exp_dir / "reproduce.sh").write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+
+    # Diverging trajectory with NaN/Inf or extreme explosion
+    (exp_dir / "results").mkdir()
+    traj = [1.0, 10.0, 1000.0, 1e12, float("inf")]
+    (exp_dir / "results" / "trajectory.json").write_text(json.dumps(traj), encoding="utf-8")
+
+    spec = {
+        "stability_criteria": {
+            "enabled": True,
+            "trajectory_file": "results/trajectory.json",
+            "require_bounded": True,
+        }
+    }
+
+    ready, reason = check_promotion_readiness(exp_dir, spec=spec)
+    assert not ready
+    assert "diverges" in reason
+
+
+def test_promotion_stability_gate_success(tmp_path):
+    import json
+
+    exp_dir = tmp_path / "exp_stab_ok"
+    exp_dir.mkdir()
+    (exp_dir / "audit_log.md").write_text("VERDICT: CONFIRMED\n", encoding="utf-8")
+    (exp_dir / "reproduce.sh").write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+
+    # Bounded contracting trajectory
+    (exp_dir / "results").mkdir()
+    traj = [1.0 / (i + 1) for i in range(20)]
+    (exp_dir / "results" / "trajectory.json").write_text(json.dumps(traj), encoding="utf-8")
+
+    spec = {
+        "stability_criteria": {
+            "enabled": True,
+            "trajectory_file": "results/trajectory.json",
+            "require_bounded": True,
+        }
+    }
+
+    ready, reason = check_promotion_readiness(exp_dir, spec=spec)
+    assert ready
+    assert "eligible for promotion" in reason
+

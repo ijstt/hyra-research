@@ -1,16 +1,21 @@
 import asyncio
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 
 from .config import HyraConfig, config as default_config
 from .engine import get_experiment_status, run_experiment_pipeline, start_experiment_detached
 from .formal_verifier import verify_lean_proof
+from .hypothesis_dag import generate_ablation_variants
 from .leakage_detector import analyze_path
+from .mechanistic_telemetry import assess_dynamical_system
 from .promoter import promote_to_project
 from .scaffolding import init_experiment_scaffold
 from .skill_distiller import distill_skill
 from .spec_loader import load_and_validate_spec
+from .stress_engine import bisection_boundary_search
 
 # Support both MCP 2.x (MCPServer) and MCP 1.x (FastMCP)
 try:
@@ -147,6 +152,112 @@ def create_mcp_server(name: str = "hyra-research", cfg: Optional[HyraConfig] = N
             return json.dumps(report.to_dict(), indent=2, ensure_ascii=False)
         except Exception as e:
             return f"Formal proof verification error: {str(e)}"
+
+    @server.tool()
+    def hyra_analyze_stability(path_or_json: str, system_name: str = "system") -> str:
+        """Perform mechanistic dynamical stability analysis (Lyapunov exponent, contraction mapping, boundedness).
+        
+        Args:
+            path_or_json: Path to JSON trajectory file OR raw JSON string containing trajectory array or object.
+            system_name: Identifier name for the dynamical system under investigation.
+        """
+        try:
+            p = Path(path_or_json).expanduser()
+            if p.is_file():
+                raw = p.read_text(encoding="utf-8")
+            else:
+                raw = path_or_json
+
+            data = json.loads(raw)
+            if isinstance(data, list):
+                tb = data
+                tp = None
+                jac = None
+                dt = 0.01
+            elif isinstance(data, dict):
+                tb = data.get("trajectory_base") or data.get("trajectory") or []
+                tp = data.get("trajectory_perturbed")
+                jac = data.get("jacobian")
+                dt = float(data.get("dt", 0.01))
+            else:
+                return "Error: Input must be a JSON array of trajectory values or an object."
+
+            report = assess_dynamical_system(
+                system_name=system_name,
+                trajectory_base=tb,
+                trajectory_perturbed=tp,
+                jacobian=jac,
+                dt=dt,
+            )
+            return json.dumps(report.to_dict(), indent=2, ensure_ascii=False)
+        except Exception as e:
+            return f"Stability analysis error: {str(e)}"
+
+    @server.tool()
+    def hyra_generate_ablations(exp_id: str, components: str) -> str:
+        """Generate systematic 2^k and leave-one-out ablation configurations for causal attribution.
+        
+        Args:
+            exp_id: Base experiment identifier (e.g. 'EXP-003').
+            components: Comma-separated list or JSON array of component names (e.g. 'diffusion,threshold,homeostasis').
+        """
+        try:
+            if components.strip().startswith("["):
+                comps = json.loads(components)
+            else:
+                comps = [c.strip() for c in components.split(",") if c.strip()]
+
+            variants = generate_ablation_variants(exp_id, comps)
+            return json.dumps([v.to_dict() for v in variants], indent=2, ensure_ascii=False)
+        except Exception as e:
+            return f"Ablation generation error: {str(e)}"
+
+    @server.tool()
+    def hyra_stress_search(
+        param_name: str,
+        low_val: float,
+        high_val: float,
+        baseline_metric: float,
+        script_path: str,
+        tolerance_ratio: float = 0.5,
+    ) -> str:
+        """Adversarial parameter stress search via bisection to find critical breakdown threshold theta_c.
+        
+        Args:
+            param_name: Name of parameter being stressed (e.g. 'noise_sigma', 'dt').
+            low_val: Lower parameter bound known to be stable.
+            high_val: Upper parameter bound suspected or known to break.
+            baseline_metric: Nominal baseline metric value.
+            script_path: Path to evaluation script that takes --<param_name> <val> and outputs JSON {metric, is_stable, failure_mode}.
+            tolerance_ratio: Fractional threshold for collapse (default 0.5).
+        """
+        script = Path(script_path).expanduser().resolve()
+        if not script.is_file():
+            return f"Error: Evaluation script not found: {script_path}"
+
+        def _eval_runner(val: float):
+            cmd = [sys.executable, str(script), f"--{param_name}", str(val)]
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if proc.returncode != 0:
+                return 0.0, False, f"Crash (code {proc.returncode}): {proc.stderr[:80].strip()}"
+            try:
+                out = json.loads(proc.stdout.strip())
+                return float(out.get("metric", 0.0)), bool(out.get("is_stable", True)), out.get("failure_mode")
+            except Exception:
+                return 0.0, False, "Malformed JSON from eval script"
+
+        try:
+            report = bisection_boundary_search(
+                eval_fn=_eval_runner,
+                param_name=param_name,
+                low_val=low_val,
+                high_val=high_val,
+                baseline_metric=baseline_metric,
+                tolerance_ratio=tolerance_ratio,
+            )
+            return json.dumps(report.to_dict(), indent=2, ensure_ascii=False)
+        except Exception as e:
+            return f"Stress search error: {str(e)}"
 
     return server
 

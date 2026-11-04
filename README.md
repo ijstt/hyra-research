@@ -117,37 +117,53 @@ pip install -e ".[dev,mcp]"
 
 ## Command-Line Interface (CLI)
 
-HYRA exposes a unified CLI for managing experiment lifecycles:
+HYRA exposes a unified CLI for managing experiment lifecycles and scientific verification:
 
 ```bash
 # 1. Initialize a new isolated experiment in staging
 hyra init EXP-002 --title "Adaptive Threshold SNN" --project SpikeNets
 
-# 2. Run the experiment synchronously
+# 2. Run the experiment synchronously or detached in background
 hyra run EXP-002
-
-# 3. Or launch detached execution in the background (leaves terminal free)
 hyra run EXP-002 --background
 
-# 4. Check experiment liveness, PID, logs, and audit verdict
+# 3. Check experiment liveness, PID, logs, and audit verdict
 hyra status EXP-002
 
-# 5. Promote a confirmed experiment to target Git repository on a new branch
+# 4. Perform AST static analysis for data leakage
+hyra check-leakage path/to/experiment/src/
+
+# 5. Formally verify Lean 4 mathematical proof
+hyra verify-proof path/to/proof.lean
+
+# 6. Analyze mechanistic dynamical stability on trajectory data
+hyra analyze-stability results/trajectory.json --name "AdaptiveLIF"
+
+# 7. Generate systematic leave-one-out and 2^k ablation matrix
+hyra generate-ablations EXP-003 --components drift diffusion jump homeostasis
+
+# 8. Adversarially stress-test a parameter to detect critical phase breakdown
+hyra stress-search noise_sigma --low 0.01 --high 2.0 --baseline 0.95 --script eval_probe.py
+
+# 9. Promote a confirmed experiment to target Git repository on a new branch
 hyra promote EXP-002
 
-# 6. Distill a verified algorithm into a permanent agent skill
+# 10. Distill a verified algorithm into a permanent agent skill (SKILL.md)
 hyra distill \
   --name fast_laplace_solver \
   --desc "High-performance Gaver-Stehfest numerical Laplace inverter" \
   --guide "Use when computing first passage times for continuous SDEs." \
   --example path/to/solver.py
+
+# 11. Package and export skill for distribution (Agensi.io, Claude, Cursor)
+hyra export-skill --name anti_leakage_researcher --target agensi --output dist
 ```
 
 ---
 
 ## Model Context Protocol (MCP) Server
 
-HYRA provides a native Model Context Protocol server exposing 7 tools for AI agent orchestration:
+HYRA provides a native Model Context Protocol server exposing 10 tools for autonomous AI agent orchestration:
 
 ### MCP Server Tools
 
@@ -156,8 +172,11 @@ HYRA provides a native Model Context Protocol server exposing 7 tools for AI age
 3. `hyra_check_status(exp_id)`: Reports execution state, background PID, recent logs, run history metrics, and audit verdict.
 4. `hyra_check_leakage(path)`: Performs static AST code audit for data leakage vulnerabilities (pre-split fit, lookahead bias, target leakage).
 5. `hyra_verify_proof(path, disallow_sorry=True)`: Formally verifies Lean 4 mathematical proof files and checks for unproven 'sorry' assertions.
-6. `hyra_promote_experiment(exp_id)`: Enforces zero-leakage and formal proof gates, then transfers production modules into target Git repository.
-7. `hyra_distill_skill(name, description, guidelines, example_code)`: Compiles verified implementations into permanent agent skill repositories.
+6. `hyra_analyze_stability(path_or_json, system_name)`: Computes Lyapunov exponents, Lipschitz contraction ($L < 1$), phase space boundedness, and spectral radius.
+7. `hyra_generate_ablations(exp_id, components)`: Generates systematic $2^k$ and leave-one-out ablation configurations for causal attribution.
+8. `hyra_stress_search(param_name, low_val, high_val, baseline_metric, script_path)`: Discovers critical phase transition threshold $\theta_c$ via adversarial bisection search.
+9. `hyra_promote_experiment(exp_id)`: Enforces zero-leakage, Lean formal proof, and stability gates, then transfers code to target Git repo.
+10. `hyra_distill_skill(name, description, guidelines, example_code)`: Compiles verified implementations into permanent agent skill repositories.
 
 ### Configuration in MCP Clients
 
@@ -263,20 +282,23 @@ Test coverage includes:
 hyra-research/
 ├── src/
 │   └── hyra/
-│       ├── __init__.py          # Public API exports
+│       ├── __init__.py          # Public API exports (v0.3.0)
 │       ├── cli.py               # Unified CLI interface (hyra)
 │       ├── config.py            # Dynamic configuration and environment manager
 │       ├── engine.py            # Multi-agent orchestrator (Antigravity SDK / LLM)
 │       ├── formal_verifier.py   # Lean 4 formal theorem verification engine
+│       ├── hypothesis_dag.py    # Lineage DAG and systematic LOO / 2^k ablation engine
 │       ├── leakage_detector.py  # AST static analyzer for data leakage
-│       ├── mcp_server.py        # Model Context Protocol stdio server
+│       ├── mechanistic_telemetry.py # Lyapunov exponents, Lipschitz contraction, stability
+│       ├── mcp_server.py        # Model Context Protocol stdio server (10 tools)
 │       ├── promoter.py          # Git promotion gate and verification engine
 │       ├── resource_guard.py    # Hardware telemetry and sandboxed process runner
 │       ├── run_tracker.py       # Append-only run ledger (runs.jsonl)
 │       ├── scaffolding.py       # Isolated workspace initialization
 │       ├── skill_distiller.py   # Autonomous skill compiler (SKILL.md)
 │       ├── skill_exporter.py    # ZIP exporter for Agensi, Claude, and Cursor
-│       └── spec_loader.py       # YAML contract validation
+│       ├── spec_loader.py       # YAML contract validation
+│       └── stress_engine.py     # Adversarial bisection search for phase breakdown theta_c
 ├── skills/
 │   └── anti_leakage_researcher/ # Official Agensi.io distribution skill package
 ├── templates/
@@ -285,17 +307,22 @@ hyra-research/
 ├── examples/
 │   └── exp_001_snn_baseline/    # End-to-end reproducible experiment reference
 ├── tests/
+│   ├── test_cli_discovery.py
 │   ├── test_config.py
 │   ├── test_e2e_research_lifecycle.py
 │   ├── test_formal_verifier.py
+│   ├── test_hypothesis_dag.py
 │   ├── test_leakage_detector.py
+│   ├── test_mcp_discovery_tools.py
+│   ├── test_mechanistic_telemetry.py
 │   ├── test_promoter.py
 │   ├── test_resource_guard.py
 │   ├── test_run_tracker.py
 │   ├── test_scaffolding.py
 │   ├── test_skill_distiller.py
 │   ├── test_skill_exporter.py
-│   └── test_spec_loader.py
+│   ├── test_spec_loader.py
+│   └── test_stress_engine.py
 ├── pyproject.toml               # PEP 621 package build configuration
 ├── README.md                    # Platform documentation and architecture
 └── LICENSE                      # MIT License

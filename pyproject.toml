@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hyra-research"
-version = "0.2.0"
-description = "Autonomous AI Research Harness & Experimentation Platform with Anti-Leakage Verification and Zero Project Pollution"
+version = "0.3.0"
+description = "Autonomous AI Research Harness & Epistemic Discovery Engine with Dual-Pillar Verification"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

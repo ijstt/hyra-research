@@ -1,19 +1,24 @@
 import argparse
 import asyncio
 import json
+import subprocess
 import sys
 from pathlib import Path
 
 from .config import config
 from .engine import get_experiment_status, run_experiment_pipeline, start_experiment_detached
 from .formal_verifier import verify_lean_proof
+from .hypothesis_dag import generate_ablation_variants
 from .leakage_detector import analyze_path
+from .mechanistic_telemetry import assess_dynamical_system
 from .promoter import check_promotion_readiness, promote_to_project
 from .run_tracker import format_runs_terminal, load_run_history
 from .scaffolding import init_experiment_scaffold
 from .skill_distiller import distill_skill
 from .skill_exporter import export_skill
 from .spec_loader import load_and_validate_spec
+from .stress_engine import bisection_boundary_search
+
 
 
 def main():
@@ -83,7 +88,37 @@ def main():
     export_parser.add_argument("--output", default="dist", help="Output directory for generated ZIP archive")
     export_parser.add_argument("--desc", default=None, help="Custom skill description")
 
-    # 9. mcp command
+    # 9. analyze-stability command
+    stability_parser = subparsers.add_parser(
+        "analyze-stability", help="Perform mechanistic dynamical stability analysis on trajectory data"
+    )
+    stability_parser.add_argument("path", help="Path to JSON file containing trajectory coordinates")
+    stability_parser.add_argument("--name", default="system", help="Identifier of dynamical system")
+    stability_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON report")
+
+    # 10. generate-ablations command
+    ablate_parser = subparsers.add_parser(
+        "generate-ablations", help="Generate systematic leave-one-out ablation variants"
+    )
+    ablate_parser.add_argument("exp_id", help="Base experiment ID")
+    ablate_parser.add_argument(
+        "--components", nargs="+", required=True, help="List of component terms to ablate"
+    )
+    ablate_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON report")
+
+    # 11. stress-search command
+    stress_parser = subparsers.add_parser(
+        "stress-search", help="Adversarial parameter stress search and critical phase boundary detection"
+    )
+    stress_parser.add_argument("param", help="Parameter name to stress (e.g., noise_sigma, dt)")
+    stress_parser.add_argument("--low", type=float, required=True, help="Lower parameter bound (stable baseline)")
+    stress_parser.add_argument("--high", type=float, required=True, help="Upper parameter bound (failure suspected)")
+    stress_parser.add_argument("--baseline", type=float, required=True, help="Baseline nominal metric value")
+    stress_parser.add_argument("--script", required=True, help="Evaluation script returning JSON {metric, is_stable, failure_mode}")
+    stress_parser.add_argument("--ratio", type=float, default=0.5, help="Failure tolerance ratio (default 0.5)")
+    stress_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON report")
+
+    # 12. mcp command
     subparsers.add_parser("mcp", help="Start the Model Context Protocol stdio server")
 
     args = parser.parse_args()
@@ -222,6 +257,97 @@ def main():
             )
         except Exception as e:
             print(f"Skill export failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.command == "analyze-stability":
+        target = Path(args.path)
+        if not target.exists():
+            print(f"Error: trajectory file {target} does not exist", file=sys.stderr)
+            sys.exit(1)
+        try:
+            with open(target, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            if isinstance(data, list):
+                traj_base = data
+                traj_pert = None
+                jacobian = None
+                dt = 0.01
+            elif isinstance(data, dict):
+                traj_base = data.get("trajectory_base") or data.get("trajectory") or []
+                traj_pert = data.get("trajectory_perturbed")
+                jacobian = data.get("jacobian")
+                dt = float(data.get("dt", 0.01))
+            else:
+                raise ValueError("JSON must contain an array or object with trajectory data.")
+
+            report = assess_dynamical_system(
+                system_name=args.name,
+                trajectory_base=traj_base,
+                trajectory_perturbed=traj_pert,
+                jacobian=jacobian,
+                dt=dt,
+            )
+            if getattr(args, "json", False):
+                print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+            else:
+                print(report.format_terminal())
+        except Exception as e:
+            print(f"Stability analysis failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.command == "generate-ablations":
+        try:
+            variants = generate_ablation_variants(args.exp_id, args.components)
+            if getattr(args, "json", False):
+                print(json.dumps([v.to_dict() for v in variants], indent=2, ensure_ascii=False))
+            else:
+                border = "=" * 78
+                print(border)
+                print(f"HYRA SYSTEMATIC ABLATION MATRIX: {args.exp_id}")
+                print(border)
+                print(f"{'Variant ID':<25} | {'Type':<15} | {'Active Components'}")
+                print("-" * 78)
+                for v in variants:
+                    comps_str = ", ".join(v.active_components) if v.active_components else "(none)"
+                    print(f"{v.variant_id:<25} | {v.variant_type:<15} | {comps_str}")
+                print(border)
+        except Exception as e:
+            print(f"Failed to generate ablation variants: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.command == "stress-search":
+        script_path = Path(args.script).resolve()
+        if not script_path.exists():
+            print(f"Error: Evaluation script {script_path} does not exist", file=sys.stderr)
+            sys.exit(1)
+
+        def _eval_runner(val: float):
+            cmd = [sys.executable, str(script_path), f"--{args.param}", str(val)]
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            if proc.returncode != 0:
+                return 0.0, False, f"Crash (code {proc.returncode}): {proc.stderr[:80].strip()}"
+            try:
+                out = json.loads(proc.stdout.strip())
+                return float(out.get("metric", 0.0)), bool(out.get("is_stable", True)), out.get("failure_mode")
+            except Exception:
+                return 0.0, False, "Malformed JSON from eval script"
+
+        try:
+            report = bisection_boundary_search(
+                eval_fn=_eval_runner,
+                param_name=args.param,
+                low_val=args.low,
+                high_val=args.high,
+                baseline_metric=args.baseline,
+                tolerance_ratio=args.ratio,
+            )
+            if getattr(args, "json", False):
+                print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+            else:
+                print(report.format_terminal())
+        except Exception as e:
+            print(f"Stress search failed: {e}", file=sys.stderr)
             sys.exit(1)
 
     elif args.command == "mcp":
