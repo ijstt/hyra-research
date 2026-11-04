@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .config import config
 from .engine import get_experiment_status, run_experiment_pipeline, start_experiment_detached
+from .leakage_detector import analyze_path
 from .promoter import check_promotion_readiness, promote_to_project
 from .scaffolding import init_experiment_scaffold
 from .skill_distiller import distill_skill
@@ -45,7 +46,17 @@ def main():
     distill_parser.add_argument("--guide", required=True, help="Usage guidelines and theoretical context")
     distill_parser.add_argument("--example", required=True, help="Path to Python reference implementation file")
 
-    # 6. mcp command
+    # 6. check-leakage command
+    check_leakage_parser = subparsers.add_parser(
+        "check-leakage", help="Perform static AST audit for data leakage vulnerabilities"
+    )
+    check_leakage_parser.add_argument("path", help="Path to Python file or directory to inspect")
+    check_leakage_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON report")
+    check_leakage_parser.add_argument(
+        "--strict", action="store_true", help="Exit with error if any warnings or critical issues are found"
+    )
+
+    # 7. mcp command
     subparsers.add_parser("mcp", help="Start the Model Context Protocol stdio server")
 
     args = parser.parse_args()
@@ -114,6 +125,25 @@ def main():
             print(f"Skill distilled successfully: {target_skill}")
         except Exception as e:
             print(f"Skill distillation failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.command == "check-leakage":
+        target = Path(args.path)
+        if not target.exists():
+            print(f"Target path not found: {target}", file=sys.stderr)
+            sys.exit(1)
+
+        try:
+            report = analyze_path(target)
+            if getattr(args, "json", False):
+                print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+            else:
+                print(report.format_terminal())
+
+            if not report.passed or (args.strict and report.total_findings > 0):
+                sys.exit(1)
+        except Exception as e:
+            print(f"Anti-leakage audit failed: {e}", file=sys.stderr)
             sys.exit(1)
 
     elif args.command == "mcp":

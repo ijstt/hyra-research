@@ -5,6 +5,7 @@ from typing import Optional
 
 from .config import HyraConfig, config as default_config
 from .engine import get_experiment_status, run_experiment_pipeline, start_experiment_detached
+from .leakage_detector import analyze_path
 from .promoter import promote_to_project
 from .scaffolding import init_experiment_scaffold
 from .skill_distiller import distill_skill
@@ -110,6 +111,23 @@ def create_mcp_server(name: str = "hyra-research", cfg: Optional[HyraConfig] = N
             return f"Skill successfully distilled to: {skill_file}"
         except Exception as e:
             return f"Distillation error: {str(e)}"
+
+    @server.tool()
+    def hyra_check_leakage(path: str) -> str:
+        """Run AST static analysis on Python script or directory to detect data leakage antipatterns.
+        
+        Args:
+            path: Absolute or relative path to a Python script or folder of scripts.
+        """
+        target = Path(path).expanduser().resolve()
+        if not target.exists():
+            return f"Error: Target path not found: {path}"
+
+        try:
+            report = analyze_path(target)
+            return json.dumps(report.to_dict(), indent=2, ensure_ascii=False)
+        except Exception as e:
+            return f"Leakage check error: {str(e)}"
 
     return server
 

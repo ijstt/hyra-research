@@ -8,6 +8,14 @@ from .engine import (
     run_experiment_pipeline,
     start_experiment_detached,
 )
+from .leakage_detector import (
+    FileLeakageReport,
+    LeakageFinding,
+    LeakageReport,
+    analyze_code,
+    analyze_file,
+    analyze_path,
+)
 from .promoter import check_promotion_readiness, promote_to_project
 from .resource_guard import get_system_metrics, run_sandboxed_command
 from .scaffolding import init_experiment_scaffold
@@ -28,4 +36,10 @@ __all__ = [
     "check_promotion_readiness",
     "promote_to_project",
     "distill_skill",
+    "analyze_code",
+    "analyze_file",
+    "analyze_path",
+    "LeakageFinding",
+    "FileLeakageReport",
+    "LeakageReport",
 ]
