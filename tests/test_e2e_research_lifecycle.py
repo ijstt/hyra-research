@@ -45,7 +45,7 @@ def test_full_scientific_research_lifecycle(tmp_path: Path):
     init_info = init_experiment_scaffold(
         exp_id=exp_id,
         title="Adaptive Jump Diffusion SNN",
-        project_name="SpikeNets",
+        project_name="test_project",
         cfg=cfg,
     )
     exp_dir = Path(init_info["staging_dir"])

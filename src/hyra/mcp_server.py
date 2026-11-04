@@ -38,13 +38,13 @@ def create_mcp_server(name: str = "hyra-research", cfg: Optional[HyraConfig] = N
     server = MCPServer(name)
 
     @server.tool()
-    def hyra_init_experiment(exp_id: str, title: str, project_name: str = "SpikeNets") -> str:
+    def hyra_init_experiment(exp_id: str, title: str, project_name: str = "my_project") -> str:
         """Initialize a new experiment in staging, creating spec.yaml, Obsidian card, and Memory entity.
         
         Args:
             exp_id: Unique experiment identifier (e.g. 'EXP-002').
             title: Scientific hypothesis / experiment title.
-            project_name: Target project repository name (default: SpikeNets).
+            project_name: Target project repository name (default: my_project).
         """
         try:
             res = init_experiment_scaffold(exp_id, title, project_name, cfg=active_cfg)

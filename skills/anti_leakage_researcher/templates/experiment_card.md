@@ -4,7 +4,7 @@
 - **Целевой проект:** [[Projects#{{PROJECT_NAME}}|{{PROJECT_NAME}}]]
 - **Статус:** `DRAFT` | `RUNNING` | `CONFIRMED` | `FALSIFIED` | `INCONCLUSIVE`
 - **Ветка Git:** `exp/{{EXPERIMENT_ID}}`
-- **Каталог стейджинга:** `/home/ijstt/.research_staging/experiments/{{EXPERIMENT_ID}}/`
+- **Каталог стейджинга:** `~/.research_staging/experiments/{{EXPERIMENT_ID}}/`
 
 ---
 
@@ -42,7 +42,7 @@
 
 ## 5. Результаты Автономного Прогона (Worker Layer)
 - **Исполняемый скрипт воспроизведения:** `reproduce.sh`
-- **Сырые артефакты:** `/home/ijstt/.research_staging/experiments/{{EXPERIMENT_ID}}/artifacts/`
+- **Сырые артефакты:** `~/.research_staging/experiments/{{EXPERIMENT_ID}}/artifacts/`
 - **Итоговые метрики:**
   | Модель | Целевая метрика | Относительный прирост | Время шага (мс) | VRAM (МБ) |
   | :--- | :--- | :--- | :--- | :--- |

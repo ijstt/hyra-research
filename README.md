@@ -48,7 +48,7 @@ flowchart TD
 
     subgraph PROMOTION["4. Verification Gate & Knowledge Distillation"]
         F -- "VERDICT: CONFIRMED" --> I["Git Promoter (exp/EXP_ID Branch)"]
-        I --> J["Target Production Repo (e.g., SpikeNets)"]
+        I --> J["Target Production Repo (e.g., my_project)"]
         I --> K["Autonomous Skill Distiller (SKILL.md)"]
         I --> L["Zettelkasten & Knowledge Graph Sync (Obsidian + Memory MCP)"]
     end
@@ -121,7 +121,7 @@ HYRA exposes a unified CLI for managing experiment lifecycles and scientific ver
 
 ```bash
 # 1. Initialize a new isolated experiment in staging
-hyra init EXP-002 --title "Adaptive Threshold SNN" --project SpikeNets
+hyra init EXP-002 --title "Adaptive Threshold Model" --project my_project
 
 # 2. Run the experiment synchronously or detached in background
 hyra run EXP-002
@@ -190,7 +190,7 @@ Add HYRA to your MCP configuration file (e.g. `mcp_config.json`, `claude_desktop
       "args": [],
       "env": {
         "HYRA_STAGING_DIR": "/home/user/.research_staging",
-        "HYRA_DEFAULT_PROJECT": "/home/user/SpikeNets"
+        "HYRA_DEFAULT_PROJECT": "/home/user/my_project"
       }
     }
   }
@@ -205,8 +205,8 @@ Every experiment is governed by a declarative YAML contract:
 
 ```yaml
 experiment_id: "EXP-001"
-title: "Exponential Leaky Integrate-and-Fire with Dynamic Adaptive Threshold"
-project_path: "/home/user/SpikeNets"
+title: "Continuous Stochastic Dynamic Model with Adaptive Threshold"
+project_path: "/home/user/my_project"
 date: "2026-11-02"
 
 hypothesis:
@@ -252,7 +252,7 @@ HYRA adapts to any environment via `hyra.yaml` or standard environment variables
 | `HYRA_OBSIDIAN_VAULT` | `~/OBSIDIAN/Antigravity_Memory/Research` | Path to Obsidian vault (optional) |
 | `HYRA_MEMORY_FILE` | `~/.gemini/antigravity/memory.jsonl` | Path to Memory MCP graph file (optional) |
 | `HYRA_SKILLS_DIR` | `~/.gemini/config/skills` | Directory for distilled agent skills |
-| `HYRA_DEFAULT_PROJECT` | `~/SpikeNets` | Default target repository for promotions |
+| `HYRA_DEFAULT_PROJECT` | Current directory (`.`) | Default target repository for promotions |
 | `HYRA_LLM_MODEL` | `gemini-2.5-flash` | Default LLM model identifier |
 
 ---

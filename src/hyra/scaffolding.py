@@ -9,7 +9,7 @@ from .config import HyraConfig, config as default_config
 def init_experiment_scaffold(
     exp_id: str,
     title: str = "Untitled Experiment",
-    project_name: str = "SpikeNets",
+    project_name: str = "my_project",
     cfg: Optional[HyraConfig] = None,
 ) -> Dict[str, Any]:
     """Initialize an isolated experiment workspace in staging with templates and tracking.

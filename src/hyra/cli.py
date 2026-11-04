@@ -32,7 +32,7 @@ def main():
     init_parser = subparsers.add_parser("init", help="Initialize a new experiment workspace in staging")
     init_parser.add_argument("exp_id", help="Experiment identifier (e.g., EXP-002)")
     init_parser.add_argument("--title", default="Untitled Experiment", help="Title of the research experiment")
-    init_parser.add_argument("--project", default="SpikeNets", help="Target project repository name")
+    init_parser.add_argument("--project", default="my_project", help="Target project repository name")
 
     # 2. run command
     run_parser = subparsers.add_parser("run", help="Run an experiment cycle")

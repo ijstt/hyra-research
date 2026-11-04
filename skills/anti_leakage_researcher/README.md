@@ -1,7 +1,7 @@
 # Anti-Leakage Verification & Hypothesis Scaffolding
 
 > Official Autonomous AI Research Skill for Claude Code, Cursor, Copilot, and Google Antigravity.
-> Developed by Vladimir Fedorko | Powered by [hyra-research](https://github.com/ijstt/hyra-research)
+> Developed by Hyra Research Team | Powered by [hyra-research](https://github.com/ijstt/hyra-research)
 
 ---
 

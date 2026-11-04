@@ -2,7 +2,7 @@
 
 experiment_id: "EXP-001"
 title: "Название эксперимента"
-project_path: "/home/ijstt/SpikeNets"
+project_path: "/path/to/my_project"
 date: "2026-11-02"
 
 hypothesis:

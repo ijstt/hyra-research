@@ -2,7 +2,7 @@
 name: anti_leakage_researcher
 description: "Autonomous data leakage detector and hypothesis scaffolding for ML research. Validates ML pipelines against lookahead bias, pre-split transformations, and target leakage."
 version: "1.0.0"
-author: "Vladimir Fedorko"
+author: "Hyra Research Team"
 tools:
   - run_command
   - view_file

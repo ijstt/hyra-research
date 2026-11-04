@@ -71,8 +71,7 @@ class HyraConfig:
         if project:
             default_project_path = Path(project).expanduser().resolve()
         else:
-            default_proj = home / "SpikeNets"
-            default_project_path = default_proj if default_proj.exists() else home
+            default_project_path = Path.cwd()
 
         model = (
             os.environ.get("HYRA_LLM_MODEL")
