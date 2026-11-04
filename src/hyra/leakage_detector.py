@@ -530,8 +530,9 @@ def analyze_path(target_path: Path) -> LeakageReport:
             for file_name in sorted(files):
                 if file_name.endswith(".py"):
                     full_p = Path(root) / file_name
-                    # Skip virtual environments and hidden dirs
-                    if any(part.startswith(".") or part in ("venv", ".venv", "__pycache__") for part in full_p.parts):
+                    # Skip virtual environments and hidden dirs relative to target_path
+                    rel_p = full_p.relative_to(path_obj)
+                    if any(part.startswith(".") or part in ("venv", ".venv", "__pycache__") for part in rel_p.parts[:-1]):
                         continue
                     file_reports.append(analyze_file(full_p))
 
