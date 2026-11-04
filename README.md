@@ -147,15 +147,17 @@ hyra distill \
 
 ## Model Context Protocol (MCP) Server
 
-HYRA provides a native Model Context Protocol server exposing 5 tools for AI agent orchestration:
+HYRA provides a native Model Context Protocol server exposing 7 tools for AI agent orchestration:
 
 ### MCP Server Tools
 
 1. `hyra_init_experiment(exp_id, title, project_name)`: Creates isolated staging workspace, populates `spec.yaml`, creates Obsidian card, and logs Memory MCP entity.
 2. `hyra_start_experiment(exp_id, background=True)`: Initiates the multi-agent research pipeline (Mission Planner -> Worker -> Adversarial Reviewer).
-3. `hyra_check_status(exp_id)`: Reports execution state, background PID, recent logs, and audit verdict (`CONFIRMED` / `FALSIFIED` / `PENDING`).
-4. `hyra_promote_experiment(exp_id)`: Verifies audit logs and transfers production modules and demonstration notebooks into target Git repo.
-5. `hyra_distill_skill(name, description, guidelines, example_code)`: Compiles verified implementations into permanent agent skill repositories.
+3. `hyra_check_status(exp_id)`: Reports execution state, background PID, recent logs, run history metrics, and audit verdict.
+4. `hyra_check_leakage(path)`: Performs static AST code audit for data leakage vulnerabilities (pre-split fit, lookahead bias, target leakage).
+5. `hyra_verify_proof(path, disallow_sorry=True)`: Formally verifies Lean 4 mathematical proof files and checks for unproven 'sorry' assertions.
+6. `hyra_promote_experiment(exp_id)`: Enforces zero-leakage and formal proof gates, then transfers production modules into target Git repository.
+7. `hyra_distill_skill(name, description, guidelines, example_code)`: Compiles verified implementations into permanent agent skill repositories.
 
 ### Configuration in MCP Clients
 
@@ -265,12 +267,18 @@ hyra-research/
 │       ├── cli.py               # Unified CLI interface (hyra)
 │       ├── config.py            # Dynamic configuration and environment manager
 │       ├── engine.py            # Multi-agent orchestrator (Antigravity SDK / LLM)
+│       ├── formal_verifier.py   # Lean 4 formal theorem verification engine
+│       ├── leakage_detector.py  # AST static analyzer for data leakage
 │       ├── mcp_server.py        # Model Context Protocol stdio server
 │       ├── promoter.py          # Git promotion gate and verification engine
 │       ├── resource_guard.py    # Hardware telemetry and sandboxed process runner
+│       ├── run_tracker.py       # Append-only run ledger (runs.jsonl)
 │       ├── scaffolding.py       # Isolated workspace initialization
 │       ├── skill_distiller.py   # Autonomous skill compiler (SKILL.md)
+│       ├── skill_exporter.py    # ZIP exporter for Agensi, Claude, and Cursor
 │       └── spec_loader.py       # YAML contract validation
+├── skills/
+│   └── anti_leakage_researcher/ # Official Agensi.io distribution skill package
 ├── templates/
 │   ├── spec_template.yaml       # Canonical declarative contract template
 │   └── experiment_card.md       # Obsidian Zettelkasten experiment card template
@@ -278,10 +286,15 @@ hyra-research/
 │   └── exp_001_snn_baseline/    # End-to-end reproducible experiment reference
 ├── tests/
 │   ├── test_config.py
+│   ├── test_e2e_research_lifecycle.py
+│   ├── test_formal_verifier.py
+│   ├── test_leakage_detector.py
 │   ├── test_promoter.py
 │   ├── test_resource_guard.py
+│   ├── test_run_tracker.py
 │   ├── test_scaffolding.py
 │   ├── test_skill_distiller.py
+│   ├── test_skill_exporter.py
 │   └── test_spec_loader.py
 ├── pyproject.toml               # PEP 621 package build configuration
 ├── README.md                    # Platform documentation and architecture

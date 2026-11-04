@@ -1,6 +1,6 @@
 """HYRA: Autonomous AI Research Harness & Experimentation Platform."""
 
-__version__ = "1.0.0"
+__version__ = "0.2.0"
 
 from .config import HyraConfig, config
 from .engine import (
