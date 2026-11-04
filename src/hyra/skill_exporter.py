@@ -36,7 +36,7 @@ def generate_skill_manifest(
     name: str,
     description: str,
     target_platform: str = "agensi",
-    author: str = "Hyra Research Team",
+    author: str = "Vladimir Fedorko",
     version: str = "1.0.0",
 ) -> str:
     """Generate high-standard SKILL.md with valid YAML frontmatter and scientific protocol."""

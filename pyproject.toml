@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-    { name = "Hyra Research Contributors", email = "contributors@hyra-research.org" }
+    { name = "Vladimir Fedorko", email = "vladimirfedorko225@gmail.com" }
 ]
 keywords = [
     "ai-agents",
