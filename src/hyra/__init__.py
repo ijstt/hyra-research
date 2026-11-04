@@ -24,6 +24,14 @@ from .leakage_detector import (
 )
 from .promoter import check_promotion_readiness, promote_to_project
 from .resource_guard import get_system_metrics, run_sandboxed_command
+from .run_tracker import (
+    RunRecord,
+    format_runs_terminal,
+    get_git_commit_sha,
+    load_run_history,
+    record_run,
+    summarize_runs,
+)
 from .scaffolding import init_experiment_scaffold
 from .skill_distiller import distill_skill
 from .spec_loader import SpecValidationError, load_and_validate_spec
@@ -52,4 +60,10 @@ __all__ = [
     "LeanDiagnostic",
     "is_lean_installed",
     "verify_lean_proof",
+    "RunRecord",
+    "record_run",
+    "load_run_history",
+    "summarize_runs",
+    "format_runs_terminal",
+    "get_git_commit_sha",
 ]

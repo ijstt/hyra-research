@@ -9,6 +9,7 @@ from .engine import get_experiment_status, run_experiment_pipeline, start_experi
 from .formal_verifier import verify_lean_proof
 from .leakage_detector import analyze_path
 from .promoter import check_promotion_readiness, promote_to_project
+from .run_tracker import format_runs_terminal, load_run_history
 from .scaffolding import init_experiment_scaffold
 from .skill_distiller import distill_skill
 from .spec_loader import load_and_validate_spec
@@ -110,6 +111,11 @@ def main():
         status_info["promotion_ready"] = ready
         status_info["promotion_reason"] = reason
         print(json.dumps(status_info, indent=2, ensure_ascii=False))
+
+        runs = load_run_history(exp_dir)
+        if runs:
+            print("\nRun History:")
+            print(format_runs_terminal(runs))
 
     elif args.command == "promote":
         exp_dir = config.staging_dir / "experiments" / args.exp_id
