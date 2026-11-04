@@ -1,0 +1,37 @@
+# spec_template.yaml: Контракт автономного исследования для Hyra-Antigravity Harness
+
+experiment_id: "EXP-001"
+title: "Название эксперимента"
+project_path: "/home/ijstt/SpikeNets"
+date: "2026-11-02"
+
+hypothesis:
+  statement: "Четкое утверждение проверяемого эффекта"
+  mathematical_formulation: |
+    # LaTeX или символьное описание ключевых уравнений
+    dX_t = theta * (mu - X_t) dt + sigma * dW_t + J * dN_t
+
+falsification:
+  target_metric: "val_accuracy" # или test_loss, throughput, mse
+  baseline_metric: 0.852
+  required_gain: 0.05 # Минимальный относительный прирост (5%)
+  max_p_value: 0.01   # Требуемая статистическая значимость
+  numerical_stability_check: true
+
+compute_budget:
+  max_runtime_minutes: 120
+  gpu_memory_limit_mb: 8192
+  allow_cpu_fallback: false
+  random_seeds: [42, 137, 2026]
+
+execution_steps:
+  - "1. Подготовить синтетический или канонический датасет без утечек"
+  - "2. Запустить канонический baseline с фиксацией метрик и времени инференса"
+  - "3. Реализовать предложенную модификацию архитектуры"
+  - "4. Провести обучение и кросс-валидацию по заданным seeds"
+  - "5. Сформировать self-contained reproduce.sh"
+  - "6. Передать результаты на слепой аудит adversarial_reviewer"
+
+promotion:
+  target_module_path: "spikenets/models/exp_neuron_v2.py"
+  target_notebook_path: "notebooks/demo_exp_neuron_v2.ipynb"

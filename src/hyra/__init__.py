@@ -34,6 +34,11 @@ from .run_tracker import (
 )
 from .scaffolding import init_experiment_scaffold
 from .skill_distiller import distill_skill
+from .skill_exporter import (
+    ExportedSkillReport,
+    export_skill,
+    generate_skill_manifest,
+)
 from .spec_loader import SpecValidationError, load_and_validate_spec
 
 __all__ = [
@@ -66,4 +71,7 @@ __all__ = [
     "summarize_runs",
     "format_runs_terminal",
     "get_git_commit_sha",
+    "ExportedSkillReport",
+    "export_skill",
+    "generate_skill_manifest",
 ]

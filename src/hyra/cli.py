@@ -12,6 +12,7 @@ from .promoter import check_promotion_readiness, promote_to_project
 from .run_tracker import format_runs_terminal, load_run_history
 from .scaffolding import init_experiment_scaffold
 from .skill_distiller import distill_skill
+from .skill_exporter import export_skill
 from .spec_loader import load_and_validate_spec
 
 
@@ -71,7 +72,18 @@ def main():
     )
     proof_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON report")
 
-    # 8. mcp command
+    # 8. export-skill command
+    export_parser = subparsers.add_parser(
+        "export-skill", help="Export and package an agent skill for Agensi.io, Claude, or Cursor"
+    )
+    export_parser.add_argument("--name", required=True, help="Skill name identifier (e.g. anti_leakage_researcher)")
+    export_parser.add_argument(
+        "--target", default="agensi", choices=["agensi", "claude", "cursor"], help="Target agent platform"
+    )
+    export_parser.add_argument("--output", default="dist", help="Output directory for generated ZIP archive")
+    export_parser.add_argument("--desc", default=None, help="Custom skill description")
+
+    # 9. mcp command
     subparsers.add_parser("mcp", help="Start the Model Context Protocol stdio server")
 
     args = parser.parse_args()
@@ -183,6 +195,33 @@ def main():
                 sys.exit(1)
         except Exception as e:
             print(f"Formal verification failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.command == "export-skill":
+        try:
+            res = export_skill(
+                skill_name=args.name,
+                target_platform=args.target,
+                output_dir=Path(args.output),
+                custom_description=args.desc,
+            )
+            print("Skill exported successfully:")
+            print(
+                json.dumps(
+                    {
+                        "skill_name": res.skill_name,
+                        "target_platform": res.target_platform,
+                        "archive_path": res.archive_path,
+                        "files_count": len(res.files_included),
+                        "size_bytes": res.size_bytes,
+                        "files": res.files_included,
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            )
+        except Exception as e:
+            print(f"Skill export failed: {e}", file=sys.stderr)
             sys.exit(1)
 
     elif args.command == "mcp":
