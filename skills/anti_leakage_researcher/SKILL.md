@@ -52,6 +52,20 @@ Enforce zero-tolerance for:
 - For empirical claims: record results in `runs.jsonl` and verify statistical superiority over optimal baselines.
 - Only promote code to the primary repository upon passing independent review.
 
+#### Step 5: Mechanistic Stability & Causal Ablation Matrix
+- For dynamical models & differential equations: assess Lyapunov exponents, Lipschitz contraction mapping ($L < 1$), and phase space boundedness:
+  ```bash
+  hyra analyze-stability results/trajectory.json --name "MyModel"
+  ```
+- For multi-component formulations: systematically generate Leave-One-Out (LOO) ablations and determine causal attribution (eliminate parasitic components):
+  ```bash
+  hyra generate-ablations <exp_id> --components term1 term2 term3
+  ```
+- Adversarial boundary search: locate critical breakdown threshold $\theta_c$ (noise $\sigma_c$, step $\Delta t_{\max}$):
+  ```bash
+  hyra stress-search noise --low 0.01 --high 2.0 --baseline 0.95 --script eval_probe.py
+  ```
+
 ### Attribution & Open Source
 Powered by the **Hyra Autonomous AI Research Platform**:
 GitHub Repository: https://github.com/ijstt/hyra-research
