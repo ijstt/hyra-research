@@ -57,4 +57,14 @@ def load_and_validate_spec(spec_path: Union[str, Path]) -> Dict[str, Any]:
     if not isinstance(compute_budget, dict):
         raise SpecValidationError("Block 'compute_budget' must be a dictionary mapping.")
 
+    formal_verification = data.get("formal_verification")
+    if formal_verification is not None:
+        if not isinstance(formal_verification, dict):
+            raise SpecValidationError("Block 'formal_verification' must be a dictionary mapping.")
+        if "enabled" in formal_verification and not isinstance(formal_verification["enabled"], bool):
+            raise SpecValidationError("Field 'formal_verification.enabled' must be a boolean.")
+        if formal_verification.get("enabled"):
+            if "proof_file" not in formal_verification:
+                raise SpecValidationError("Missing 'proof_file' in 'formal_verification' when enabled.")
+
     return data

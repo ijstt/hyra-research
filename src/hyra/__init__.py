@@ -8,6 +8,12 @@ from .engine import (
     run_experiment_pipeline,
     start_experiment_detached,
 )
+from .formal_verifier import (
+    FormalProofReport,
+    LeanDiagnostic,
+    is_lean_installed,
+    verify_lean_proof,
+)
 from .leakage_detector import (
     FileLeakageReport,
     LeakageFinding,
@@ -42,4 +48,8 @@ __all__ = [
     "LeakageFinding",
     "FileLeakageReport",
     "LeakageReport",
+    "FormalProofReport",
+    "LeanDiagnostic",
+    "is_lean_installed",
+    "verify_lean_proof",
 ]

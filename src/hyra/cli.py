@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .config import config
 from .engine import get_experiment_status, run_experiment_pipeline, start_experiment_detached
+from .formal_verifier import verify_lean_proof
 from .leakage_detector import analyze_path
 from .promoter import check_promotion_readiness, promote_to_project
 from .scaffolding import init_experiment_scaffold
@@ -56,7 +57,20 @@ def main():
         "--strict", action="store_true", help="Exit with error if any warnings or critical issues are found"
     )
 
-    # 7. mcp command
+    # 7. verify-proof command
+    proof_parser = subparsers.add_parser(
+        "verify-proof", help="Formally verify mathematical theorem proof using Lean 4"
+    )
+    proof_parser.add_argument("path", help="Path to .lean proof file")
+    proof_parser.add_argument(
+        "--allow-sorry", action="store_true", help="Allow incomplete proofs containing 'sorry'"
+    )
+    proof_parser.add_argument(
+        "--theorems", nargs="*", default=None, help="Names of specific theorems to verify"
+    )
+    proof_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON report")
+
+    # 8. mcp command
     subparsers.add_parser("mcp", help="Start the Model Context Protocol stdio server")
 
     args = parser.parse_args()
@@ -144,6 +158,25 @@ def main():
                 sys.exit(1)
         except Exception as e:
             print(f"Anti-leakage audit failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.command == "verify-proof":
+        target = Path(args.path)
+        try:
+            report = verify_lean_proof(
+                target,
+                disallow_sorry=not getattr(args, "allow_sorry", False),
+                target_theorems=getattr(args, "theorems", None),
+            )
+            if getattr(args, "json", False):
+                print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+            else:
+                print(report.format_terminal())
+
+            if not report.passed:
+                sys.exit(1)
+        except Exception as e:
+            print(f"Formal verification failed: {e}", file=sys.stderr)
             sys.exit(1)
 
     elif args.command == "mcp":

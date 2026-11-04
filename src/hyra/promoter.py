@@ -2,16 +2,24 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
+import yaml
 
 from .config import HyraConfig, config as default_config
+from .formal_verifier import verify_lean_proof
+from .leakage_detector import analyze_path
 
 
-def check_promotion_readiness(exp_dir: Path) -> Tuple[bool, str]:
+def check_promotion_readiness(
+    exp_dir: Path,
+    spec: Optional[Dict[str, Any]] = None,
+) -> Tuple[bool, str]:
     """Verify whether an experiment in staging satisfies promotion criteria.
     
     Invariants:
     1. audit_log.md must exist and contain 'VERDICT: CONFIRMED'.
     2. reproduce.sh must exist and be executable/self-contained.
+    3. src/ must pass anti-leakage static analysis with 0 critical findings.
+    4. If formal_verification is enabled in spec, Lean 4 proof must pass with zero 'sorry'.
     """
     audit_file = exp_dir / "audit_log.md"
     reproduce_script = exp_dir / "reproduce.sh"
@@ -25,6 +33,49 @@ def check_promotion_readiness(exp_dir: Path) -> Tuple[bool, str]:
 
     if not reproduce_script.exists():
         return False, "Reproduction script 'reproduce.sh' is missing."
+
+    # 3. Static anti-leakage audit gate
+    src_dir = exp_dir / "src"
+    if src_dir.is_dir():
+        leak_report = analyze_path(src_dir)
+        if not leak_report.passed:
+            return False, f"Promotion blocked: Data leakage detected in {leak_report.critical_count} files."
+
+    # 4. Formal verification gate
+    active_spec = spec
+    if active_spec is None and (exp_dir / "spec.yaml").is_file():
+        try:
+            with open(exp_dir / "spec.yaml", "r", encoding="utf-8") as f:
+                loaded = yaml.safe_load(f)
+                if isinstance(loaded, dict):
+                    active_spec = loaded
+        except Exception:
+            pass
+
+    if active_spec and isinstance(active_spec, dict):
+        formal_cfg = active_spec.get("formal_verification")
+        if formal_cfg and isinstance(formal_cfg, dict) and formal_cfg.get("enabled"):
+            proof_file_rel = formal_cfg.get("proof_file", "src/proof.lean")
+            candidate_paths = [
+                exp_dir / proof_file_rel,
+                exp_dir / "src" / Path(proof_file_rel).name,
+            ]
+            proof_path = next((p for p in candidate_paths if p.is_file()), None)
+            if not proof_path:
+                return False, f"Formal verification required by spec, but proof file '{proof_file_rel}' was not found."
+
+            disallow_sorry = formal_cfg.get("disallow_sorry", True)
+            theorems = formal_cfg.get("target_theorems")
+            proof_report = verify_lean_proof(
+                proof_path,
+                disallow_sorry=disallow_sorry,
+                target_theorems=theorems,
+            )
+            if not proof_report.passed:
+                err = proof_report.error_message or "Proof contains unverified statements or compiler errors."
+                if proof_report.has_sorry:
+                    err = "Proof contains unverified 'sorry' assertions."
+                return False, f"Formal verification gate failed: {err}"
 
     return True, "Experiment is verified and eligible for promotion to production repository."
 
@@ -45,7 +96,7 @@ def promote_to_project(
         Summary dictionary with copied files and Git branch status.
     """
     active_cfg = cfg or default_config
-    ready, reason = check_promotion_readiness(exp_dir)
+    ready, reason = check_promotion_readiness(exp_dir, spec=spec)
     if not ready:
         raise RuntimeError(f"Promotion rejected: {reason}")
 

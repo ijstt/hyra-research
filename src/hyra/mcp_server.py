@@ -5,6 +5,7 @@ from typing import Optional
 
 from .config import HyraConfig, config as default_config
 from .engine import get_experiment_status, run_experiment_pipeline, start_experiment_detached
+from .formal_verifier import verify_lean_proof
 from .leakage_detector import analyze_path
 from .promoter import promote_to_project
 from .scaffolding import init_experiment_scaffold
@@ -128,6 +129,24 @@ def create_mcp_server(name: str = "hyra-research", cfg: Optional[HyraConfig] = N
             return json.dumps(report.to_dict(), indent=2, ensure_ascii=False)
         except Exception as e:
             return f"Leakage check error: {str(e)}"
+
+    @server.tool()
+    def hyra_verify_proof(path: str, disallow_sorry: bool = True) -> str:
+        """Formally verify Lean 4 mathematical proof file and check for incomplete 'sorry' assertions.
+        
+        Args:
+            path: Path to the .lean proof file.
+            disallow_sorry: Reject proofs containing incomplete 'sorry' assertions (default True).
+        """
+        target = Path(path).expanduser().resolve()
+        if not target.is_file():
+            return f"Error: Proof file not found: {path}"
+
+        try:
+            report = verify_lean_proof(target, disallow_sorry=disallow_sorry)
+            return json.dumps(report.to_dict(), indent=2, ensure_ascii=False)
+        except Exception as e:
+            return f"Formal proof verification error: {str(e)}"
 
     return server
 
