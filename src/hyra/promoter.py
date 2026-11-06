@@ -187,9 +187,9 @@ def promote_to_project(
 
     if is_git_repo:
         try:
-            # Create or checkout experiment feature branch
+            # Create or reset and checkout experiment feature branch
             subprocess.run(
-                ["git", "checkout", "-b", branch_name],
+                ["git", "checkout", "-B", branch_name],
                 cwd=project_path,
                 capture_output=True,
                 text=True,
@@ -201,8 +201,13 @@ def promote_to_project(
     # 1. Promote target Python code module
     target_module_rel = promotion_config.get("target_module_path")
     if target_module_rel:
-        src_module = exp_dir / "src" / Path(target_module_rel).name
-        if src_module.exists():
+        candidate_srcs = [
+            exp_dir / "src" / target_module_rel,
+            exp_dir / "src" / Path(target_module_rel).name,
+            exp_dir / target_module_rel,
+        ]
+        src_module = next((p for p in candidate_srcs if p.is_file()), None)
+        if src_module:
             dest_module = project_path / target_module_rel
             dest_module.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src_module, dest_module)
@@ -211,10 +216,14 @@ def promote_to_project(
     # 2. Promote target demonstration notebook
     target_nb_rel = promotion_config.get("target_notebook_path")
     if target_nb_rel:
-        src_nb = exp_dir / "src" / Path(target_nb_rel).name
-        if not src_nb.exists():
-            src_nb = exp_dir / Path(target_nb_rel).name
-        if src_nb.exists():
+        candidate_nbs = [
+            exp_dir / "src" / target_nb_rel,
+            exp_dir / target_nb_rel,
+            exp_dir / "src" / Path(target_nb_rel).name,
+            exp_dir / Path(target_nb_rel).name,
+        ]
+        src_nb = next((p for p in candidate_nbs if p.is_file()), None)
+        if src_nb:
             dest_nb = project_path / target_nb_rel
             dest_nb.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src_nb, dest_nb)

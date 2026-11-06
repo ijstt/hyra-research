@@ -10,6 +10,7 @@ Enables deep scientific inquiry through:
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
@@ -238,12 +239,34 @@ def compute_ablation_attributions(
     critical_components: List[str] = []
     parasitic_components: List[str] = []
 
-    # Parse leave-one-out metrics
-    prefix = f"{base_experiment_id}_no_"
+    def _extract_component(var_key: str) -> Optional[str]:
+        # Exact match with base_experiment_id prefix: e.g. "EXP-001_no_jump" -> "jump"
+        pref = f"{base_experiment_id}_no_"
+        if var_key.startswith(pref):
+            return var_key[len(pref):]
+
+        # Check for full baseline keys to skip
+        if var_key.lower() in ("full", f"{base_experiment_id.lower()}_full"):
+            return None
+
+        # Strip any variant prefix like "V1_", "variant_1_", or "<exp_id>_"
+        cleaned = var_key
+        if "_" in cleaned:
+            parts = cleaned.split("_", 1)
+            if re.match(r"^(v\d+|variant\d*|exp[-\w]*)$", parts[0], re.IGNORECASE):
+                cleaned = parts[1]
+
+        if cleaned.startswith("no_"):
+            return cleaned[3:]
+        if cleaned.startswith("without_"):
+            return cleaned[8:]
+
+        # Direct component name fallback
+        return cleaned
 
     for var_id, var_metric in variant_metrics.items():
-        if var_id.startswith(prefix):
-            comp_name = var_id[len(prefix):]
+        comp_name = _extract_component(var_id)
+        if comp_name:
             # Marginal delta: how much does removing the component hurt performance?
             if higher_is_better:
                 # If higher is better: Delta = Full - Without_i

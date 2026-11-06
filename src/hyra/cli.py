@@ -11,12 +11,14 @@ from .formal_verifier import verify_lean_proof
 from .hypothesis_dag import generate_ablation_variants
 from .leakage_detector import analyze_path
 from .mechanistic_telemetry import assess_dynamical_system
+from .pareto import CandidatePoint, Objective, find_pareto_frontier
 from .promoter import check_promotion_readiness, promote_to_project
 from .run_tracker import format_runs_terminal, load_run_history
 from .scaffolding import init_experiment_scaffold
 from .skill_distiller import distill_skill
 from .skill_exporter import export_skill
 from .spec_loader import load_and_validate_spec
+from .stats_gate import verify_statistical_significance
 from .stress_engine import bisection_boundary_search
 
 
@@ -118,7 +120,31 @@ def main():
     stress_parser.add_argument("--ratio", type=float, default=0.5, help="Failure tolerance ratio (default 0.5)")
     stress_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON report")
 
-    # 12. mcp command
+    # 12. pareto command
+    pareto_parser = subparsers.add_parser(
+        "pareto", help="Compute multi-objective Pareto frontier across candidate architectures"
+    )
+    pareto_parser.add_argument("path", help="Path to JSON file containing candidates list or dict")
+    pareto_parser.add_argument(
+        "--objectives", nargs="+", required=True, help="List of objectives in format 'metric_name:direction' (e.g. accuracy:maximize latency:minimize)"
+    )
+    pareto_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON report")
+
+    # 13. stats command
+    stats_parser = subparsers.add_parser(
+        "stats", help="Verify multi-seed statistical significance between candidate and baseline"
+    )
+    stats_parser.add_argument("candidate_scores", help="Comma-separated scores for candidate model across seeds")
+    stats_parser.add_argument("baseline_scores", help="Comma-separated scores for baseline model across seeds")
+    stats_parser.add_argument("--metric", default="metric", help="Metric name (e.g. accuracy, loss)")
+    stats_parser.add_argument("--candidate-name", default="Candidate", help="Candidate model label")
+    stats_parser.add_argument("--baseline-name", default="Baseline", help="Baseline model label")
+    stats_parser.add_argument("--lower-is-better", action="store_true", help="Flag if lower metric is better (e.g. loss/error)")
+    stats_parser.add_argument("--alpha", type=float, default=0.05, help="Significance threshold alpha (default 0.05)")
+    stats_parser.add_argument("--unpaired", action="store_true", help="Perform unpaired Welch's t-test instead of paired")
+    stats_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON report")
+
+    # 14. mcp command
     subparsers.add_parser("mcp", help="Start the Model Context Protocol stdio server")
 
     args = parser.parse_args()
@@ -348,6 +374,69 @@ def main():
                 print(report.format_terminal())
         except Exception as e:
             print(f"Stress search failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.command == "pareto":
+        try:
+            p_file = Path(args.path).resolve()
+            if not p_file.is_file():
+                print(f"Error: Candidate file not found: {p_file}", file=sys.stderr)
+                sys.exit(1)
+
+            data = json.loads(p_file.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and "candidates" in data:
+                raw_cands = data["candidates"]
+            elif isinstance(data, list):
+                raw_cands = data
+            else:
+                raise ValueError("JSON must contain an array of candidates or an object with 'candidates' key.")
+
+            candidates: List[CandidatePoint] = []
+            for item in raw_cands:
+                cid = item.get("candidate_id") or item.get("id") or item.get("name") or "unknown"
+                mets = item.get("metrics") or {k: v for k, v in item.items() if isinstance(v, (int, float))}
+                meta = item.get("metadata") or {}
+                candidates.append(CandidatePoint(candidate_id=cid, metrics={k: float(v) for k, v in mets.items()}, metadata=meta))
+
+            objectives: List[Objective] = []
+            for obj_str in args.objectives:
+                if ":" in obj_str:
+                    oname, odir = obj_str.split(":", 1)
+                    odir_norm = "minimize" if odir.lower() in ("min", "minimize") else "maximize"
+                else:
+                    oname, odir_norm = obj_str, "maximize"
+                objectives.append(Objective(name=oname, direction=odir_norm))
+
+            report = find_pareto_frontier(candidates, objectives)
+            if getattr(args, "json", False):
+                print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+            else:
+                print(report.format_terminal())
+        except Exception as e:
+            print(f"Pareto analysis failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.command == "stats":
+        try:
+            cand_scores = [float(x.strip()) for x in args.candidate_scores.split(",") if x.strip()]
+            base_scores = [float(x.strip()) for x in args.baseline_scores.split(",") if x.strip()]
+
+            report = verify_statistical_significance(
+                candidate_scores=cand_scores,
+                baseline_scores=base_scores,
+                metric_name=args.metric,
+                candidate_name=args.candidate_name,
+                baseline_name=args.baseline_name,
+                higher_is_better=not args.lower_is_better,
+                alpha=args.alpha,
+                is_paired=not args.unpaired,
+            )
+            if getattr(args, "json", False):
+                print(json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+            else:
+                print(report.format_terminal())
+        except Exception as e:
+            print(f"Statistical significance verification failed: {e}", file=sys.stderr)
             sys.exit(1)
 
     elif args.command == "mcp":

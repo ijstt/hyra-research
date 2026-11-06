@@ -276,13 +276,27 @@ Test coverage includes:
 
 ---
 
+### 8. Multi-Objective Pareto Frontier Engine
+Scientific discoveries rarely optimize a single scalar metric. HYRA computes non-dominated sorting and trade-off frontiers across competing engineering criteria (e.g., accuracy vs. latency vs. memory):
+```bash
+hyra pareto candidates.json --objectives accuracy:maximize latency:minimize memory:minimize
+```
+
+### 9. Multi-Seed Statistical Significance Gate
+Eliminates false-positive discoveries and seed-hunting flukes through Paired Student's t-test, Welch's t-test, Cohen's d effect sizes, and 95% non-parametric bootstrap confidence intervals:
+```bash
+hyra stats "0.92, 0.95, 0.91, 0.94, 0.93" "0.82, 0.84, 0.80, 0.83, 0.81" --metric accuracy
+```
+
+---
+
 ## Repository Structure
 
 ```
 hyra-research/
 ├── src/
 │   └── hyra/
-│       ├── __init__.py          # Public API exports (v0.3.0)
+│       ├── __init__.py          # Public API exports (v0.4.0)
 │       ├── cli.py               # Unified CLI interface (hyra)
 │       ├── config.py            # Dynamic configuration and environment manager
 │       ├── engine.py            # Multi-agent orchestrator (Antigravity SDK / LLM)
@@ -290,7 +304,8 @@ hyra-research/
 │       ├── hypothesis_dag.py    # Lineage DAG and systematic LOO / 2^k ablation engine
 │       ├── leakage_detector.py  # AST static analyzer for data leakage
 │       ├── mechanistic_telemetry.py # Lyapunov exponents, Lipschitz contraction, stability
-│       ├── mcp_server.py        # Model Context Protocol stdio server (10 tools)
+│       ├── mcp_server.py        # Model Context Protocol stdio server (12 tools)
+│       ├── pareto.py            # Multi-objective Pareto frontier dominance engine
 │       ├── promoter.py          # Git promotion gate and verification engine
 │       ├── resource_guard.py    # Hardware telemetry and sandboxed process runner
 │       ├── run_tracker.py       # Append-only run ledger (runs.jsonl)
@@ -298,7 +313,9 @@ hyra-research/
 │       ├── skill_distiller.py   # Autonomous skill compiler (SKILL.md)
 │       ├── skill_exporter.py    # ZIP exporter for Agensi, Claude, and Cursor
 │       ├── spec_loader.py       # YAML contract validation
-│       └── stress_engine.py     # Adversarial bisection search for phase breakdown theta_c
+│       ├── stats_gate.py        # Multi-seed statistical significance gate
+│       ├── stress_engine.py     # Adversarial bisection search for phase breakdown theta_c
+│       └── templates/           # Bundled spec and Zettelkasten card templates
 ├── skills/
 │   └── anti_leakage_researcher/ # Official Agensi.io distribution skill package
 ├── templates/
@@ -315,6 +332,7 @@ hyra-research/
 │   ├── test_leakage_detector.py
 │   ├── test_mcp_discovery_tools.py
 │   ├── test_mechanistic_telemetry.py
+│   ├── test_pareto.py
 │   ├── test_promoter.py
 │   ├── test_resource_guard.py
 │   ├── test_run_tracker.py
@@ -322,6 +340,7 @@ hyra-research/
 │   ├── test_skill_distiller.py
 │   ├── test_skill_exporter.py
 │   ├── test_spec_loader.py
+│   ├── test_stats_gate.py
 │   └── test_stress_engine.py
 ├── pyproject.toml               # PEP 621 package build configuration
 ├── README.md                    # Platform documentation and architecture

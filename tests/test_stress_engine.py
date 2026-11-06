@@ -77,3 +77,51 @@ def test_sweep_stress_parameter():
     assert report.critical_threshold is not None
     assert report.critical_threshold > 0.2
     assert len(report.points_evaluated) == 10
+
+
+def test_bisection_lower_is_better_loss():
+    # Loss metric where lower is better (baseline = 0.20, breaks when loss > 0.40)
+    def mock_loss_eval(lr: float):
+        loss = 0.20 + 0.5 * lr
+        if lr < 0.4:
+            return loss, True, None
+        return loss, False, "GradientExplosion"
+
+    report = bisection_boundary_search(
+        eval_fn=mock_loss_eval,
+        param_name="learning_rate",
+        low_val=0.01,
+        high_val=1.0,
+        baseline_metric=0.20,
+        tolerance_ratio=2.0,  # Allow up to 2x baseline loss = 0.40
+        higher_is_better=False,
+    )
+
+    assert report.critical_threshold is not None
+    assert 0.39 <= report.critical_threshold <= 0.41
+    assert report.higher_is_better is False
+    assert "GradientExplosion" in report.format_terminal()
+
+
+def test_sweep_lower_is_better():
+    # Error rate where lower is better
+    def mock_error_eval(noise: float):
+        error = 0.05 + 0.2 * noise
+        is_stable = error <= 0.15
+        mode = None if is_stable else "HighErrorRate"
+        return error, is_stable, mode
+
+    report = sweep_stress_parameter(
+        eval_fn=mock_error_eval,
+        param_name="noise",
+        min_val=0.0,
+        max_val=1.0,
+        baseline_metric=0.05,
+        threshold_metric=0.15,
+        higher_is_better=False,
+        steps=11,
+    )
+
+    assert report.critical_threshold is not None
+    assert report.critical_threshold >= 0.5
+    assert report.higher_is_better is False

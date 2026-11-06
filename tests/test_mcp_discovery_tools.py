@@ -77,3 +77,41 @@ print(json.dumps({"metric": metric, "is_stable": stable, "failure_mode": None if
     assert res_data["parameter_name"] == "dt"
     assert res_data["critical_threshold"] is not None
     assert 0.04 <= res_data["critical_threshold"] <= 0.06
+
+
+def test_mcp_pareto_frontier():
+    server = create_mcp_server()
+    cands_json = json.dumps([
+        {"candidate_id": "NetA", "metrics": {"acc": 0.95, "lat": 20.0}},
+        {"candidate_id": "NetB", "metrics": {"acc": 0.90, "lat": 5.0}},
+        {"candidate_id": "NetC", "metrics": {"acc": 0.85, "lat": 30.0}},
+    ])
+    res = asyncio.run(
+        server.call_tool(
+            "hyra_pareto_frontier",
+            {"candidates_json": cands_json, "objectives_str": "acc:maximize lat:minimize"},
+        )
+    )
+    res_data = json.loads(res.content[0].text)
+    assert res_data["frontier_count"] == 2
+    f_ids = {c["candidate_id"] for c in res_data["frontier_candidates"]}
+    assert f_ids == {"NetA", "NetB"}
+
+
+def test_mcp_verify_significance():
+    server = create_mcp_server()
+    res = asyncio.run(
+        server.call_tool(
+            "hyra_verify_significance",
+            {
+                "candidate_scores": "0.92, 0.95, 0.91, 0.94, 0.93",
+                "baseline_scores": "0.82, 0.84, 0.80, 0.83, 0.81",
+                "metric_name": "accuracy",
+                "higher_is_better": True,
+            },
+        )
+    )
+    res_data = json.loads(res.content[0].text)
+    assert res_data["is_significant"] is True
+    assert res_data["verdict"] == "SIGNIFICANT_IMPROVEMENT"
+    assert res_data["p_value"] < 0.05

@@ -83,3 +83,55 @@ print(json.dumps({"metric": metric, "is_stable": stable, "failure_mode": None if
     assert report["parameter_name"] == "gamma"
     assert report["critical_threshold"] is not None
     assert 0.4 < report["critical_threshold"] < 0.8
+
+
+def test_cli_pareto(tmp_path):
+    cands_file = tmp_path / "candidates.json"
+    cands_data = [
+        {"id": "M1", "metrics": {"acc": 0.95, "lat": 15.0}},
+        {"id": "M2", "metrics": {"acc": 0.90, "lat": 5.0}},
+        {"id": "M3", "metrics": {"acc": 0.88, "lat": 20.0}},  # dominated by M1 & M2
+    ]
+    cands_file.write_text(json.dumps(cands_data), encoding="utf-8")
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "hyra.cli",
+        "pareto",
+        str(cands_file),
+        "--objectives",
+        "acc:maximize",
+        "lat:minimize",
+        "--json",
+    ]
+    res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    report = json.loads(res.stdout)
+    assert report["total_candidates"] == 3
+    assert report["frontier_count"] == 2
+    f_ids = {c["candidate_id"] for c in report["frontier_candidates"]}
+    assert f_ids == {"M1", "M2"}
+
+
+def test_cli_stats():
+    cmd = [
+        sys.executable,
+        "-m",
+        "hyra.cli",
+        "stats",
+        "0.92, 0.95, 0.91, 0.94, 0.93",
+        "0.82, 0.84, 0.80, 0.83, 0.81",
+        "--metric",
+        "accuracy",
+        "--candidate-name",
+        "CandidateSNN",
+        "--baseline-name",
+        "BaselineSNN",
+        "--json",
+    ]
+    res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    report = json.loads(res.stdout)
+    assert report["is_significant"] is True
+    assert report["verdict"] == "SIGNIFICANT_IMPROVEMENT"
+    assert report["candidate_name"] == "CandidateSNN"
+    assert report["p_value"] < 0.05

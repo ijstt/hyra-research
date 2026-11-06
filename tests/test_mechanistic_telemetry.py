@@ -96,3 +96,19 @@ def test_assess_dynamical_system_full():
     )
     assert not report_div.is_bounded
     assert "DIVERGENT" in report_div.stability_verdict
+
+
+def test_lipschitz_large_trajectory_performance():
+    import time
+    # Trajectory of 10,000 points
+    n = 10000
+    inputs = [float(i) for i in range(n)]
+    outputs = [0.7 * float(i) for i in range(n)]
+
+    t0 = time.time()
+    l_est = estimate_lipschitz_constant(inputs, outputs, max_sample_pairs=2000)
+    elapsed = time.time() - t0
+
+    assert 0.69 <= l_est <= 0.71
+    # Must finish in less than 1.0 second (unlike O(N^2) which would take 50+ seconds)
+    assert elapsed < 1.0

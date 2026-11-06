@@ -35,6 +35,7 @@ class PhaseBoundaryReport:
     baseline_metric: float
     critical_threshold: Optional[float]
     tolerance_ratio: float
+    higher_is_better: bool = True
     points_evaluated: List[StressPoint] = field(default_factory=list)
     stable_interval: Tuple[float, float] = (0.0, 0.0)
     summary_text: str = ""
@@ -46,6 +47,7 @@ class PhaseBoundaryReport:
             "baseline_metric": self.baseline_metric,
             "critical_threshold": self.critical_threshold,
             "tolerance_ratio": self.tolerance_ratio,
+            "higher_is_better": self.higher_is_better,
             "stable_interval": list(self.stable_interval),
             "points_count": len(self.points_evaluated),
             "points_evaluated": [p.to_dict() for p in self.points_evaluated],
@@ -87,6 +89,8 @@ def bisection_boundary_search(
     tolerance_ratio: float = 0.5,
     max_iterations: int = 15,
     epsilon: float = 1e-3,
+    higher_is_better: bool = True,
+    threshold_metric: Optional[float] = None,
 ) -> PhaseBoundaryReport:
     """Find the exact critical parameter value where performance collapses or stability is lost.
     
@@ -96,15 +100,31 @@ def bisection_boundary_search(
         low_val: Lower bound known to be stable.
         high_val: Upper bound suspected or known to break.
         baseline_metric: Nominal metric value.
-        tolerance_ratio: Threshold fraction (e.g. 0.5 means breakdown if metric < 0.5 * baseline).
+        tolerance_ratio: Threshold fraction (e.g. 0.5 means breakdown if metric < 0.5 * baseline for higher_is_better,
+                         or metric > 2.0 * baseline if higher_is_better=False).
         max_iterations: Maximum bisection steps.
         epsilon: Stopping precision for parameter interval.
+        higher_is_better: True if higher metric represents better performance (accuracy),
+                          False if lower metric is better (loss, error rate, latency).
+        threshold_metric: Explicit metric threshold beyond which failure is declared. If None,
+                          derived from baseline_metric and tolerance_ratio.
         
     Returns:
         PhaseBoundaryReport with critical threshold and evaluated points.
     """
     points: List[StressPoint] = []
-    threshold_metric = baseline_metric * tolerance_ratio
+    if threshold_metric is not None:
+        effective_threshold = threshold_metric
+    elif higher_is_better:
+        effective_threshold = baseline_metric * tolerance_ratio
+    else:
+        scale = (1.0 / tolerance_ratio) if (0.0 < tolerance_ratio < 1.0) else tolerance_ratio
+        effective_threshold = baseline_metric * scale
+
+    def _is_ok(metric: float, stable: bool) -> bool:
+        if not stable:
+            return False
+        return (metric >= effective_threshold) if higher_is_better else (metric <= effective_threshold)
 
     # 1. Evaluate baseline/low
     m_low, s_low, mode_low = eval_fn(low_val)
@@ -114,8 +134,8 @@ def bisection_boundary_search(
     m_high, s_high, mode_high = eval_fn(high_val)
     points.append(StressPoint(high_val, m_high, s_high, mode_high))
 
-    is_low_ok = s_low and (m_low >= threshold_metric)
-    is_high_ok = s_high and (m_high >= threshold_metric)
+    is_low_ok = _is_ok(m_low, s_low)
+    is_high_ok = _is_ok(m_high, s_high)
 
     if is_low_ok and is_high_ok:
         return PhaseBoundaryReport(
@@ -124,6 +144,7 @@ def bisection_boundary_search(
             baseline_metric=baseline_metric,
             critical_threshold=None,
             tolerance_ratio=tolerance_ratio,
+            higher_is_better=higher_is_better,
             points_evaluated=points,
             stable_interval=(low_val, high_val),
             summary_text=f"System remains completely stable across the entire tested interval [{low_val}, {high_val}].",
@@ -136,6 +157,7 @@ def bisection_boundary_search(
             baseline_metric=baseline_metric,
             critical_threshold=low_val,
             tolerance_ratio=tolerance_ratio,
+            higher_is_better=higher_is_better,
             points_evaluated=points,
             stable_interval=(low_val, low_val),
             summary_text=f"System failed even at minimal parameter value {low_val}.",
@@ -153,8 +175,7 @@ def bisection_boundary_search(
         m_mid, s_mid, mode_mid = eval_fn(mid)
         points.append(StressPoint(mid, m_mid, s_mid, mode_mid))
 
-        is_mid_ok = s_mid and (m_mid >= threshold_metric)
-        if is_mid_ok:
+        if _is_ok(m_mid, s_mid):
             stable_bound = mid
         else:
             unstable_bound = mid
@@ -168,6 +189,7 @@ def bisection_boundary_search(
         baseline_metric=baseline_metric,
         critical_threshold=round(critical_val, 4),
         tolerance_ratio=tolerance_ratio,
+        higher_is_better=higher_is_better,
         points_evaluated=points,
         stable_interval=(low_val, round(stable_bound, 4)),
         summary_text=(
@@ -185,6 +207,8 @@ def sweep_stress_parameter(
     baseline_metric: float,
     steps: int = 10,
     tolerance_ratio: float = 0.5,
+    higher_is_better: bool = True,
+    threshold_metric: Optional[float] = None,
 ) -> PhaseBoundaryReport:
     """Linearly sweep a stress parameter and detect breakdown transition.
     
@@ -196,6 +220,8 @@ def sweep_stress_parameter(
         baseline_metric: Baseline metric.
         steps: Number of equidistant evaluation points.
         tolerance_ratio: Failure ratio threshold.
+        higher_is_better: True if higher is better (accuracy), False if lower is better (loss/error).
+        threshold_metric: Optional explicit metric threshold.
         
     Returns:
         PhaseBoundaryReport with swept points and discovered critical threshold.
@@ -205,7 +231,18 @@ def sweep_stress_parameter(
 
     step_size = (max_val - min_val) / (steps - 1)
     points: List[StressPoint] = []
-    threshold_metric = baseline_metric * tolerance_ratio
+    if threshold_metric is not None:
+        effective_threshold = threshold_metric
+    elif higher_is_better:
+        effective_threshold = baseline_metric * tolerance_ratio
+    else:
+        scale = (1.0 / tolerance_ratio) if (0.0 < tolerance_ratio < 1.0) else tolerance_ratio
+        effective_threshold = baseline_metric * scale
+
+    def _is_ok(metric: float, stable: bool) -> bool:
+        if not stable:
+            return False
+        return (metric >= effective_threshold) if higher_is_better else (metric <= effective_threshold)
 
     critical_threshold: Optional[float] = None
     stable_max = min_val
@@ -215,8 +252,7 @@ def sweep_stress_parameter(
         metric, is_stable, mode = eval_fn(val)
         points.append(StressPoint(val, metric, is_stable, mode))
 
-        is_ok = is_stable and (metric >= threshold_metric)
-        if is_ok:
+        if _is_ok(metric, is_stable):
             stable_max = val
         elif critical_threshold is None:
             critical_threshold = val
@@ -233,6 +269,7 @@ def sweep_stress_parameter(
         baseline_metric=baseline_metric,
         critical_threshold=critical_threshold,
         tolerance_ratio=tolerance_ratio,
+        higher_is_better=higher_is_better,
         points_evaluated=points,
         stable_interval=(min_val, stable_max),
         summary_text=summary,

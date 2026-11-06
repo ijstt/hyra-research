@@ -1,5 +1,6 @@
 import os
 import psutil
+import signal
 import subprocess
 import time
 from typing import Any, Dict, Optional, Tuple
@@ -62,24 +63,43 @@ def run_sandboxed_command(
     if env_overrides:
         env.update(env_overrides)
 
-    proc = subprocess.Popen(
-        cmd,
-        shell=True,
-        cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env,
-    )
+    popen_kwargs: Dict[str, Any] = {
+        "shell": True,
+        "cwd": cwd,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+        "env": env,
+    }
+    # On POSIX systems, spawn into a new process group so child processes can be terminated together
+    if hasattr(os, "setsid"):
+        popen_kwargs["start_new_session"] = True
+
+    proc = subprocess.Popen(cmd, **popen_kwargs)
 
     try:
         stdout, stderr = proc.communicate(timeout=timeout_sec)
         ret_code = proc.returncode
     except subprocess.TimeoutExpired:
-        proc.kill()
-        stdout, stderr = proc.communicate()
+        # Terminate entire process tree (process group)
+        if hasattr(os, "killpg") and hasattr(os, "getpgid"):
+            try:
+                pgid = os.getpgid(proc.pid)
+                os.killpg(pgid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+        else:
+            proc.kill()
+
+        try:
+            stdout, stderr = proc.communicate(timeout=5)
+        except Exception:
+            stdout, stderr = "", ""
         ret_code = -1
-        stderr += f"\n[RESOURCE_GUARD]: Process terminated forcefully due to timeout ({timeout_sec}s)."
+        stderr += f"\n[RESOURCE_GUARD]: Process group terminated forcefully due to timeout ({timeout_sec}s)."
 
     elapsed = round(time.time() - start_time, 2)
     return ret_code, stdout, stderr, elapsed

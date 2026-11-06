@@ -135,13 +135,23 @@ def export_skill(
     archive_path = out_dir / archive_filename
 
     # Source templates and scripts from package
-    pkg_root = Path(__file__).resolve().parent.parent.parent
-    leakage_script_src = pkg_root / "src" / "hyra" / "leakage_detector.py"
-    spec_template_src = pkg_root / "templates" / "spec_template.yaml"
-    card_template_src = pkg_root / "templates" / "experiment_card.md"
+    pkg_dir = Path(__file__).resolve().parent
+    repo_root = pkg_dir.parent.parent
+
+    leakage_script_src = pkg_dir / "leakage_detector.py"
+    if not leakage_script_src.is_file():
+        leakage_script_src = repo_root / "src" / "hyra" / "leakage_detector.py"
+
+    spec_template_src = pkg_dir / "templates" / "spec_template.yaml"
+    if not spec_template_src.is_file():
+        spec_template_src = repo_root / "templates" / "spec_template.yaml"
+
+    card_template_src = pkg_dir / "templates" / "experiment_card.md"
+    if not card_template_src.is_file():
+        card_template_src = repo_root / "templates" / "experiment_card.md"
 
     # Also check if existing skill directory exists
-    repo_skill_dir = pkg_root / "skills" / skill_name
+    repo_skill_dir = repo_root / "skills" / skill_name
 
     with tempfile.TemporaryDirectory() as temp_dir_str:
         staging = Path(temp_dir_str) / skill_name

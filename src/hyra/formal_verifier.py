@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import time
+import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
@@ -264,8 +265,11 @@ def verify_lean_proof(
 
         if passed and target_theorems:
             for thm in target_theorems:
-                axiom_cmd = [lean_bin, "--run", "-c", f"#print axioms {thm}"]
+                check_script = path_obj.parent / f"_check_axioms_{uuid.uuid4().hex[:6]}.lean"
                 try:
+                    orig_code = path_obj.read_text(encoding="utf-8")
+                    check_script.write_text(f"{orig_code}\n#print axioms {thm}\n", encoding="utf-8")
+                    axiom_cmd = [lean_bin, str(check_script)]
                     ax_proc = subprocess.run(
                         axiom_cmd,
                         capture_output=True,
@@ -291,6 +295,9 @@ def verify_lean_proof(
                                 unauthorized_axioms.append(ax_clean)
                 except Exception:
                     pass
+                finally:
+                    if check_script.exists():
+                        check_script.unlink(missing_ok=True)
 
             if unauthorized_axioms:
                 passed = False

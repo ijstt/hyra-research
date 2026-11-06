@@ -11,10 +11,12 @@ from .formal_verifier import verify_lean_proof
 from .hypothesis_dag import generate_ablation_variants
 from .leakage_detector import analyze_path
 from .mechanistic_telemetry import assess_dynamical_system
+from .pareto import CandidatePoint, Objective, find_pareto_frontier
 from .promoter import promote_to_project
 from .scaffolding import init_experiment_scaffold
 from .skill_distiller import distill_skill
 from .spec_loader import load_and_validate_spec
+from .stats_gate import verify_statistical_significance
 from .stress_engine import bisection_boundary_search
 
 # Support both MCP 2.x (MCPServer) and MCP 1.x (FastMCP)
@@ -258,6 +260,93 @@ def create_mcp_server(name: str = "hyra-research", cfg: Optional[HyraConfig] = N
             return json.dumps(report.to_dict(), indent=2, ensure_ascii=False)
         except Exception as e:
             return f"Stress search error: {str(e)}"
+
+    @server.tool()
+    def hyra_pareto_frontier(candidates_json: str, objectives_str: str) -> str:
+        """Compute multi-objective non-dominated Pareto frontier across candidate architectures.
+        
+        Args:
+            candidates_json: JSON string or file path containing list of candidate objects with 'candidate_id' and 'metrics'.
+            objectives_str: Comma-separated or space-separated list of objectives in format 'metric:direction' (e.g. 'acc:maximize,lat:minimize').
+        """
+        try:
+            cand_p = Path(candidates_json).expanduser()
+            if cand_p.is_file():
+                raw_text = cand_p.read_text(encoding="utf-8")
+            else:
+                raw_text = candidates_json
+
+            data = json.loads(raw_text)
+            if isinstance(data, dict) and "candidates" in data:
+                raw_cands = data["candidates"]
+            elif isinstance(data, list):
+                raw_cands = data
+            else:
+                return "Error: Input must be a JSON array of candidates or an object with 'candidates' key."
+
+            candidates: List[CandidatePoint] = []
+            for item in raw_cands:
+                cid = item.get("candidate_id") or item.get("id") or item.get("name") or "unknown"
+                mets = item.get("metrics") or {k: v for k, v in item.items() if isinstance(v, (int, float))}
+                meta = item.get("metadata") or {}
+                candidates.append(CandidatePoint(candidate_id=cid, metrics={k: float(v) for k, v in mets.items()}, metadata=meta))
+
+            objs_tokens = [o.strip() for o in objectives_str.replace(",", " ").split() if o.strip()]
+            objectives: List[Objective] = []
+            for token in objs_tokens:
+                if ":" in token:
+                    oname, odir = token.split(":", 1)
+                    odir_norm = "minimize" if odir.lower() in ("min", "minimize") else "maximize"
+                else:
+                    oname, odir_norm = token, "maximize"
+                objectives.append(Objective(name=oname, direction=odir_norm))
+
+            report = find_pareto_frontier(candidates, objectives)
+            return json.dumps(report.to_dict(), indent=2, ensure_ascii=False)
+        except Exception as e:
+            return f"Pareto analysis error: {str(e)}"
+
+    @server.tool()
+    def hyra_verify_significance(
+        candidate_scores: str,
+        baseline_scores: str,
+        metric_name: str = "metric",
+        higher_is_better: bool = True,
+        is_paired: bool = True,
+        alpha: float = 0.05,
+    ) -> str:
+        """Verify statistical significance between candidate and baseline runs across multiple seeds.
+        
+        Args:
+            candidate_scores: Comma-separated floats or JSON list of candidate seed evaluations.
+            baseline_scores: Comma-separated floats or JSON list of baseline seed evaluations.
+            metric_name: Target metric identifier.
+            higher_is_better: True if larger metric is superior (accuracy), False if lower is superior (loss).
+            is_paired: True to run Paired Student's t-test (matched seeds), False for Welch's t-test.
+            alpha: Significance threshold (default 0.05).
+        """
+        try:
+            if candidate_scores.strip().startswith("["):
+                cands = [float(x) for x in json.loads(candidate_scores)]
+            else:
+                cands = [float(x.strip()) for x in candidate_scores.split(",") if x.strip()]
+
+            if baseline_scores.strip().startswith("["):
+                bases = [float(x) for x in json.loads(baseline_scores)]
+            else:
+                bases = [float(x.strip()) for x in baseline_scores.split(",") if x.strip()]
+
+            report = verify_statistical_significance(
+                candidate_scores=cands,
+                baseline_scores=bases,
+                metric_name=metric_name,
+                higher_is_better=higher_is_better,
+                alpha=alpha,
+                is_paired=is_paired,
+            )
+            return json.dumps(report.to_dict(), indent=2, ensure_ascii=False)
+        except Exception as e:
+            return f"Statistical significance verification error: {str(e)}"
 
     return server
 

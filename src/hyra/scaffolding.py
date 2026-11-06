@@ -51,7 +51,9 @@ def init_experiment_scaffold(
     )
 
     # 2. Populate spec.yaml from package template
-    pkg_template = Path(__file__).resolve().parent.parent.parent / "templates" / "spec_template.yaml"
+    pkg_template = Path(__file__).resolve().parent / "templates" / "spec_template.yaml"
+    if not pkg_template.is_file():
+        pkg_template = Path(__file__).resolve().parent.parent.parent / "templates" / "spec_template.yaml"
     target_spec = exp_dir / "spec.yaml"
 
     if pkg_template.is_file():
@@ -84,7 +86,9 @@ def init_experiment_scaffold(
         exp_vault.mkdir(parents=True, exist_ok=True)
         target_card = exp_vault / f"{exp_id}.md"
 
-        card_tpl = Path(__file__).resolve().parent.parent.parent / "templates" / "experiment_card.md"
+        card_tpl = Path(__file__).resolve().parent / "templates" / "experiment_card.md"
+        if not card_tpl.is_file():
+            card_tpl = Path(__file__).resolve().parent.parent.parent / "templates" / "experiment_card.md"
         if card_tpl.is_file():
             card_content = card_tpl.read_text(encoding="utf-8")
             card_content = card_content.replace("{{EXPERIMENT_ID}}", exp_id)

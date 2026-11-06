@@ -1,6 +1,6 @@
 """HYRA: Autonomous AI Research Harness & Experimentation Platform."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 from .config import HyraConfig, config
 from .engine import (
@@ -39,6 +39,14 @@ from .mechanistic_telemetry import (
     estimate_lipschitz_constant,
     estimate_spectral_radius_matrix,
 )
+from .pareto import (
+    CandidatePoint,
+    Objective,
+    ParetoReport,
+    compute_pareto_ranking,
+    dominates,
+    find_pareto_frontier,
+)
 from .promoter import check_promotion_readiness, promote_to_project
 from .resource_guard import get_system_metrics, run_sandboxed_command
 from .run_tracker import (
@@ -57,6 +65,14 @@ from .skill_exporter import (
     generate_skill_manifest,
 )
 from .spec_loader import SpecValidationError, load_and_validate_spec
+from .stats_gate import (
+    SeedComparisonReport,
+    compute_bootstrap_ci,
+    compute_cohen_d,
+    compute_welch_t_test,
+    compute_wilcoxon_signed_rank,
+    verify_statistical_significance,
+)
 from .stress_engine import (
     PhaseBoundaryReport,
     StressPoint,
@@ -114,4 +130,16 @@ __all__ = [
     "PhaseBoundaryReport",
     "bisection_boundary_search",
     "sweep_stress_parameter",
+    "Objective",
+    "CandidatePoint",
+    "ParetoReport",
+    "dominates",
+    "compute_pareto_ranking",
+    "find_pareto_frontier",
+    "SeedComparisonReport",
+    "compute_cohen_d",
+    "compute_bootstrap_ci",
+    "compute_welch_t_test",
+    "compute_wilcoxon_signed_rank",
+    "verify_statistical_significance",
 ]

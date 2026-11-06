@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import math
+import random
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
@@ -130,6 +131,8 @@ def estimate_lipschitz_constant(
     inputs: Sequence[Union[float, Sequence[float]]],
     outputs: Sequence[Union[float, Sequence[float]]],
     epsilon_min: float = 1e-12,
+    max_sample_pairs: int = 5000,
+    seed: Optional[int] = 42,
 ) -> float:
     """Estimate Lipschitz constant L = sup_{x != y} ||T(x) - T(y)|| / ||x - y||.
     
@@ -137,6 +140,8 @@ def estimate_lipschitz_constant(
         inputs: Sample input points.
         outputs: Evaluated outputs T(x) for each input point.
         epsilon_min: Minimum denominator distance to prevent division by zero.
+        max_sample_pairs: Maximum number of pairs to evaluate when trajectory length is large.
+        seed: Random seed for deterministic pair sampling.
         
     Returns:
         Maximum observed ratio L.
@@ -145,17 +150,43 @@ def estimate_lipschitz_constant(
     if n < 2:
         raise ValueError("At least 2 input-output pairs are required to compute Lipschitz constant.")
 
-    max_ratio = 0.0
-    for i in range(n):
-        xi = _to_vector(inputs[i])
-        yi = _to_vector(outputs[i])
-        for j in range(i + 1, n):
-            xj = _to_vector(inputs[j])
-            yj = _to_vector(outputs[j])
+    in_vecs = [_to_vector(inputs[i]) for i in range(n)]
+    out_vecs = [_to_vector(outputs[i]) for i in range(n)]
 
-            dx = _dist(xi, xj)
+    max_ratio = 0.0
+    total_pairs = n * (n - 1) // 2
+
+    if total_pairs <= max_sample_pairs:
+        # Exhaustive search across all pairs
+        for i in range(n):
+            xi = in_vecs[i]
+            yi = out_vecs[i]
+            for j in range(i + 1, n):
+                dx = _dist(xi, in_vecs[j])
+                if dx >= epsilon_min:
+                    dy = _dist(yi, out_vecs[j])
+                    ratio = dy / dx
+                    if ratio > max_ratio:
+                        max_ratio = ratio
+    else:
+        # 1. Always evaluate adjacent sequential steps (captures local gradient/step slopes)
+        for i in range(n - 1):
+            dx = _dist(in_vecs[i], in_vecs[i + 1])
             if dx >= epsilon_min:
-                dy = _dist(yi, yj)
+                dy = _dist(out_vecs[i], out_vecs[i + 1])
+                ratio = dy / dx
+                if ratio > max_ratio:
+                    max_ratio = ratio
+
+        # 2. Reservoir sampling of random pairs
+        rng = random.Random(seed)
+        pairs_to_sample = min(max_sample_pairs, total_pairs)
+        for _ in range(pairs_to_sample):
+            i = rng.randint(0, n - 2)
+            j = rng.randint(i + 1, n - 1)
+            dx = _dist(in_vecs[i], in_vecs[j])
+            if dx >= epsilon_min:
+                dy = _dist(out_vecs[i], out_vecs[j])
                 ratio = dy / dx
                 if ratio > max_ratio:
                     max_ratio = ratio

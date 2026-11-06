@@ -117,3 +117,28 @@ def test_compute_ablation_attributions():
     term = report.format_terminal()
     assert "HYRA CAUSAL ABLATION MATRIX: EXP-100" in term
     assert "PARASITIC TERMS DETECTED: complex_decay" in term
+
+
+def test_compute_ablation_flexible_naming():
+    # Test variant keys formatted as V1_no_..., without_..., or raw component name
+    full_metric = 1.0
+    variant_metrics = {
+        "V1_no_residual": 0.85,
+        "without_attention": 0.70,
+        "normalization": 1.05,  # Parasitic
+        "EXP-200_full": 1.0,    # Skipped full baseline
+    }
+
+    report = compute_ablation_attributions(
+        base_experiment_id="EXP-200",
+        full_metric=full_metric,
+        variant_metrics=variant_metrics,
+        higher_is_better=True,
+    )
+
+    comp_names = [a.component for a in report.attributions]
+    assert "residual" in comp_names
+    assert "attention" in comp_names
+    assert "normalization" in comp_names
+    assert "attention" in report.critical_components
+    assert "normalization" in report.parasitic_components

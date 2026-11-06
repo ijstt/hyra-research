@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import uuid
 
 from .config import HyraConfig, config as default_config
+from .leakage_detector import analyze_path
 from .resource_guard import get_system_metrics, run_sandboxed_command
 from .run_tracker import RunRecord, get_git_commit_sha, load_run_history, record_run, summarize_runs
 from .spec_loader import load_and_validate_spec
@@ -183,13 +184,44 @@ async def run_experiment_pipeline(exp_id: str, cfg: Optional[HyraConfig] = None)
             cwd=str(exp_dir),
             timeout_sec=spec.get("compute_budget", {}).get("max_runtime_minutes", 60) * 60,
         )
-        final_status = "CONFIRMED" if ret == 0 else "FAILED"
+        # 1. Static AST Data Leakage Analysis
+        leakage_status = "PASSED"
+        src_dir = exp_dir / "src"
+        if src_dir.is_dir() and any(src_dir.glob("**/*.py")):
+            leak_report = analyze_path(src_dir)
+            if not leak_report.passed:
+                leakage_status = "VIOLATIONS_FOUND"
+
+        # 2. Audit verdict inspection from audit_log.md
+        audit_file = exp_dir / "audit_log.md"
+        audit_verdict = None
+        if audit_file.exists():
+            text = audit_file.read_text(encoding="utf-8")
+            if "CONFIRMED" in text and "FALSIFIED" not in text:
+                audit_verdict = "CONFIRMED"
+            elif "FALSIFIED" in text:
+                audit_verdict = "FALSIFIED"
+
+        if ret != 0:
+            final_status = "FAILED"
+        elif leakage_status == "VIOLATIONS_FOUND":
+            final_status = "FAILED"
+        elif audit_verdict == "CONFIRMED":
+            final_status = "CONFIRMED"
+        elif audit_verdict == "FALSIFIED":
+            final_status = "FALSIFIED"
+        else:
+            final_status = "COMPLETED"
+
         if status_file.exists():
             status_data = json.loads(status_file.read_text(encoding="utf-8"))
             status_data["status"] = final_status
+            if leakage_status == "VIOLATIONS_FOUND":
+                status_data["leakage_error"] = "Critical AST data leakage violations detected in src/"
             status_file.write_text(json.dumps(status_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
         # Record structured execution run in runs.jsonl
+        sys_metrics = get_system_metrics()
         record = RunRecord(
             run_id=f"run-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}",
             experiment_id=exp_id,
@@ -198,10 +230,10 @@ async def run_experiment_pipeline(exp_id: str, cfg: Optional[HyraConfig] = None)
             random_seed=spec.get("falsification", {}).get("random_seed") or spec.get("random_seed"),
             metrics={
                 "cpu_duration_sec": round(elapsed, 2),
-                "ram_peak_mb": round(metrics.get("ram_used_gb", 0.0) * 1024, 2),
+                "ram_peak_mb": round(sys_metrics.get("ram_used_gb", 0.0) * 1024, 2),
             },
             formal_proof_status="VALID" if (exp_dir / "src" / "proof.lean").exists() else "NOT_APPLICABLE",
-            leakage_status="PASSED",
+            leakage_status=leakage_status,
             verdict=final_status,
             exit_code=ret,
         )
