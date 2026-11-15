@@ -1,6 +1,6 @@
 # HYRA: Autonomous AI Research Harness & Experimentation Platform
 
-[![M8ven Score](https://m8ven.ai/badge/mcp/ijstt-hyra-research-1uukub?v=bb5b7a02a87e16eb4d3704d670896425)](https://m8ven.ai/mcp/ijstt-hyra-research-1uukub?s=readme)
+[![M8ven Score](https://m8ven.ai/badge/mcp/ijstt/hyra-research)](https://m8ven.ai/mcp/ijstt/hyra-research?s=readme)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![MCP Ready](https://img.shields.io/badge/Model_Context_Protocol-MCP_2.x-brightgreen.svg)](https://modelcontextprotocol.io)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
